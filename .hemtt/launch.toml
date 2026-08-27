@@ -1,0 +1,34 @@
+[default]
+workshop = [
+    "450814997",  # CBA_A3
+    "463939057",  # ACE3
+    "2522638637", # ACE3 Arsenal Extended
+]
+
+parameters = [
+    "-skipIntro",
+    "-noSplash",
+    "-showScriptErrors",
+    "-filePatching",
+    "-noPause",
+]
+
+[arsenal]
+extends = "default"
+parameters = [
+    # Launch directly into the ACE Arsenal VR mission
+    "-init=playMission['','\\z\\ace\\addons\\arsenal\\missions\\Arsenal.VR']"
+]
+
+# Scenario A from TESTING.md -- our attachments compat layered on top of the
+# official ACEAX weapons compat for the same mod.
+[tier1]
+extends = "arsenal"
+workshop = [
+    "2268351256", # Tier One Weapons
+]
+
+# Baseline: ACEAX + this extension and nothing else. The arsenal must be
+# indistinguishable from stock ACEAX.
+[baseline]
+extends = "arsenal"

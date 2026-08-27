@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project name="ACEAX Attachments">
+    <Package name="main">
+        <Key ID="STR_aceaxatt_main_SettingEnabled">
+            <English>Merge weapon attachments</English>
+            <German>Waffenzubehör zusammenfassen</German>
+        </Key>
+        <Key ID="STR_aceaxatt_main_SettingEnabledTip">
+            <English>Group attachment variants in the arsenal's right panel, the way ACE Arsenal Extended groups items in the left panel. Requires a compat addon that supplies the grouping data; without one this has no effect. Turn off to restore the stock ACE Arsenal Extended behaviour.</English>
+            <German>Fasst Zubehörvarianten im rechten Arsenal-Fenster zusammen, so wie ACE Arsenal Extended es im linken Fenster tut. Benötigt ein Compat-Addon mit den Gruppierungsdaten; ohne dieses hat die Option keine Wirkung. Ausschalten stellt das normale Verhalten von ACE Arsenal Extended wieder her.</German>
+        </Key>
+    </Package>
+</Project>

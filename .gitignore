@@ -1,0 +1,25 @@
+# HEMTT
+.hemttout/
+.hemtt/local
+releases/
+hemtt.exe
+hemtt
+
+# Reference config dumps extracted from the source mod (regenerate with tools/dump_configs.py)
+_dump/
+
+# Keys
+*.biprivatekey
+.hemttprivatekey
+
+# Editors / OS
+.vs/
+.idea/
+*.swp
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc

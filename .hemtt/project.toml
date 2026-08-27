@@ -1,0 +1,20 @@
+name = "ACEAX Attachments"
+prefix = "aceaxatt"
+author = "DiGii"
+template = "cba"
+mainprefix = "z"
+sig_version = 3
+
+[version]
+path = "addons/main/script_version.hpp"
+git_hash = 0
+
+[files]
+include = [
+    "mod.cpp"
+]
+exclude = [
+    "*.psd",
+    "*.png",
+    "*.tga"
+]
