@@ -32,8 +32,8 @@ Compats built with this toolchain, as a sense of scale:
 
 | compat | attachments | rows |
 |---|---|---|
-| NIArms Attachments | 121 | **74** |
-| Tier One Attachments | 541 | **47** |
+| ACEAX NIArms Compat — carries it alongside its weapon grouping | 121 | **74** |
+| ACEAX Tier One Attachments — attachments only | 541 | **47** |
 
 ### Requirements
 

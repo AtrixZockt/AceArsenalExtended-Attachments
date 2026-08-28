@@ -51,20 +51,14 @@ The question this settles is whether attachment support can be **layered onto a 
 already wrote**, or whether covering a mod means owning all of it. It is the thing the addon is
 designed for, so it is tested against real data rather than argued about.
 
-**Tier One Weapons** (`2268351256`) is the vehicle, because it is the one mod that lets both
-layering models be compared directly:
+**Tier One Weapons** (`2268351256`) is the vehicle, because someone else already covers half of it:
 
 - **541 arsenal-visible attachments** — bipod 21, muzzle 34, optic 178, pointer 308 — the largest
   measured, folding to **47 rows**;
 - ACEAX already ships **`@aceax_compat_tier1`** in its `optionals/` folder, covering that mod's
   **weapons only**: 15 models, 139 classes, and zero attachments.
 
-Two compats get built against it. **They are mutually exclusive at runtime.**
-
-### Scenario A — modular: attachments-only, layered on the official weapons compat
-
-The important one. It is the proof that a third party can add attachment support to a mod that
-already has a weapons compat, without touching or forking it.
+So an attachments-only compat has to sit on top of a stranger's work and not collide with it.
 
 ```
 CBA + ACE + ACEAX core + @aceax_compat_tier1 + Tier One Weapons
@@ -87,58 +81,42 @@ python tools/report.py --coverage --csv          # ours
 # intersect the two class lists -- must be empty
 ```
 
-Also confirm the two do not share option-base class names (your `model_prefix` must differ from
-theirs) and that the only class they share is `XtdGearModels >> CamoBase`, which every compat is
-*meant* to merge into.
+Also confirm the two do not share option-base class names — your `model_prefix` must differ from
+theirs.
 
-### Scenario B — all-in-one: weapons and attachments in one compat
+### What it came out at
+
+`AceArsenalExtended_Tier1_Att` builds clean: **541 attachments → 47 rows**, 38 entries plus 9 with
+no sibling, and **zero** weak-match warnings.
+
+Getting there from 186 rows needed `compose:` — Tier One writes an optic and its whole accessory
+stack into one name (`Micro T-2/Leap/G33/LT 5/8`), so every combination was its own row. See
+[OPTIONS.md](OPTIONS.md).
+
+The offline pre-check passed:
 
 ```
-CBA + ACE + ACEAX core + Tier One Weapons + @aceaxatt + our full Tier One compat
-    (WITHOUT @aceax_compat_tier1)
+ours:   532 classes, 38 models        (532 not 541 -- the 9 standalone items get no XtdGearInfo)
+theirs: 139 classes, 15 models
+INTERSECTION: 0 classes, 0 models
 ```
 
-Everything merged by ours, including the weapon rows the official compat would have handled.
+Model classes are namespaced apart too — the official compat uses `tier1_`, ours `t1a_`. The two
+configs have **no class in common at all**; the official compat does not even define `CamoBase`.
 
-### The collision, deliberately
-
-Load **both** the all-in-one compat and `@aceax_compat_tier1`. Both define
-`XtdGearInfos >> CfgWeapons >> Tier1_<weapon>` for the same classes; Arma merges same-named config
-classes, so a weapon can take its `model` from one and its option values from the other.
-
-Do this once on purpose, record the symptom, and state the exclusivity plainly in the all-in-one
-build's Workshop description. Knowing what the failure looks like is worth more than assuming it
-cannot happen.
-
-### Built, and what they came out at
-
-Both compats exist and build clean:
-
-| | items | entries | standalone | rows |
-|---|---|---|---|---|
-| **A** `AceArsenalExtended_Tier1_Att` | 541 attachments | 38 | 9 | **47** |
-| **B** `AceArsenalExtended_Tier1` | 541 + 118 weapons | 43 | 9 | **52** |
-
-B's 118 rifles fit into **five** entries; the HK416 alone is 80 of them behind one row.
-
-Getting the attachments from 186 rows to 47 needed `compose:` — Tier One writes an optic and its
-whole accessory stack into one name (`Micro T-2/Leap/G33/LT 5/8`), so every combination was its own
-row. See `OPTIONS.md`. A's attachments come out with **zero** weak-match warnings; B carries the one
-pre-existing Mk 48 warning from its weapon half and nothing more.
-
-The offline pre-check passed: **ours 541 classes, theirs 139, intersection 0.** Model classes are
-namespaced apart too — the official compat uses `tier1_`, A uses `t1a_`, B uses `t1_`.
-
-The judgement calls that got them there — deriving a `platform` axis from class names, two-tone
-finishes, why `camo` defaults to `STD` — belong to those compats and are written up in their own
-READMEs, not here. What matters for *this* addon is only that the data exercises it hard.
+The judgement calls that got it there — deriving a `platform` axis from class names, two-tone
+finishes, why the weaponlight is a separate row — belong to that compat and are written up in its
+own README, not here. What matters for *this* addon is only that the data exercises it hard.
 
 ### The outcome
 
-**Scenario A works, and it is the stronger result.** Attachment support can be layered onto a compat
-written by someone else, without forking it or coordinating with its author — which means a mod that
-already has a weapons compat is not closed to further work. B stays the fallback for mods with no
-compat at all.
+**It works, and it is the result worth having.** Attachment support can be layered onto a compat
+written by someone else, without forking it or coordinating with its author — so a mod that already
+has a weapons compat is not closed to further work.
+
+The alternative shape — one compat owning a mod's weapons *and* attachments — also works and is the
+right answer for a mod with no compat at all. The NIArms compat is exactly that: it covers both
+halves, and its attachment data lies inert for anyone without this addon.
 
 ---
 
@@ -168,8 +146,8 @@ time the right panel fills, the RPT gets:
 ```
 [aceaxatt] collapse: leftPanel=2002 rightPanel=22 rows=14 selected=0
 [aceaxatt]   row 1: optic_Aco -> 
-[aceaxatt]   row 2: hlc_optic_Kern_550 -> niarms2_fn3011_kern_aarau_4x24
-[aceaxatt]   group niarms2_fn3011_kern_aarau_4x24 -> rows [2,3]
+[aceaxatt]   row 2: hlc_optic_Kern_550 -> niarms_fn3011_kern_aarau_4x24
+[aceaxatt]   group niarms_fn3011_kern_aarau_4x24 -> rows [2,3]
 [aceaxatt] collapse: deleting 1 of 14 rows
 ```
 
