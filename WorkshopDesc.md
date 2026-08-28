@@ -1,19 +1,3 @@
-# Steam Workshop description
-
-Paste the block below into the **Description** box of the Workshop item. It is Steam BBCode, not
-Markdown — select the whole block, copy, paste.
-
-Before publishing, replace `PLACEHOLDER_TIER1_ATT` with the Workshop ID of the Tier One Attachments
-compat. If it is not up yet, delete that `[*]` line; the rest stands on its own.
-
-The NIArms line points at the **existing** NIArms compat (`3788512518`), which carries its
-attachment data inline rather than shipping as a separate addon — so it is listed as a compat that
-gains something here, not as an attachments-only download. Keep that distinction: a player loading
-the NIArms compat without this addon still gets the weapon grouping.
-
----
-
-```
 [h1]What's This?[/h1]
 [url=https://steamcommunity.com/sharedfiles/filedetails/?id=2522638637]ACE3 Arsenal Extended[/url] groups similar gear behind dropdowns, so instead of scrolling past forty helmets you pick one entry and choose the camo. It does that for the arsenal's [b]left[/b] panel only — weapons, uniforms, vests, headgear, backpacks, goggles.
 
@@ -71,9 +55,3 @@ Two things worth knowing:
 [b]GrueArbre[/b] for ACE3 Arsenal Extended, which does the real work here. This extension only adds a panel it doesn't cover, and reuses its option UI to do it.
 
 No assets from ACE3, ACE Arsenal Extended or any weapon mod are included.
-```
-
----
-
-The Tier One and NIArms figures come from `README.md` and `python tools/report.py --coverage` in
-those repos. If a regrouping changes them, update both.
