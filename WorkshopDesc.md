@@ -14,7 +14,7 @@ Load it by itself and nothing changes at all. That's by design — and it works 
 
 Compats that ship attachment data, as a sense of scale:
 [list]
-[*] [url=https://steamcommunity.com/sharedfiles/filedetails/?id=PLACEHOLDER_TIER1_ATT]ACEAX Tier One Attachments[/url] — 541 attachments into 47 rows
+[*] [url=https://steamcommunity.com/sharedfiles/filedetails/?id=3791721792]ACEAX Tier One Attachments[/url] — 541 attachments into 47 rows
 [*] [url=https://steamcommunity.com/sharedfiles/filedetails/?id=3788512518]ACEAX NIArms Compat[/url] — 121 attachments into 74 rows, on top of the weapon grouping it already does
 [/list]
 
