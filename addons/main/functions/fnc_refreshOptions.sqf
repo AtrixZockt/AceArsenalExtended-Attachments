@@ -3,9 +3,9 @@
 /*
  * Bring the right-hand option panel in line with whatever is selected.
  *
- * Idempotent: the controls are only rebuilt when the selected model changes,
- * which is what makes it safe to call from both onSelChangedRight and the
- * next-frame hook in onRightPanelFilled.
+ * Idempotent: the controls are only rebuilt when the selected model changes, which
+ * is what makes it safe to call from both onSelChangedRight and the deferred pass
+ * in onRightPanelFilled.
  *
  * Arguments:
  * 0: Arsenal display <DISPLAY>
@@ -19,20 +19,23 @@ params ["_display"];
 private _model = "";
 private _class = "";
 
-if (missionNamespace getVariable [QGVAR(enabled), true]) then {
-    private _slot = call FUNC(currentSlot);
+// GVAR(collapsed) is false when the collapse did not run -- the addon is switched
+// off, the slot is not one it handles, or fnc_collapsePanel bailed. Offering
+// dropdowns over a list that still holds every duplicate would be worse than
+// offering none, so the panel stays down.
+if (missionNamespace getVariable [QGVAR(enabled), true]
+    && {GVAR(collapsed)}
+    && {(call FUNC(currentSlot)) >= 0}) then {
 
-    if (_slot isNotEqualTo []) then {
-        private _ctrl = _display displayCtrl IDC_rightTabContent;
-        private _curSel = lbCurSel _ctrl;
+    private _ctrl = _display displayCtrl IDC_rightTabContent;
+    private _curSel = lbCurSel _ctrl;
 
-        if (_curSel >= 0) then {
-            // "" is ACE's <empty> row, which unequips rather than selecting an item.
-            _class = _ctrl lbData _curSel;
+    if (_curSel >= 0) then {
+        // "" is ACE's <empty> row, which unequips rather than selecting an item.
+        _class = _ctrl lbData _curSel;
 
-            if (_class != "") then {
-                _model = ["CfgWeapons", _class] call GEARINFO(getConfigModel);
-            };
+        if (_class != "") then {
+            _model = ["CfgWeapons", _class] call GEARINFO(getConfigModel);
         };
     };
 };

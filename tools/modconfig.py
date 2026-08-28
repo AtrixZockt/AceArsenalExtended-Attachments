@@ -90,11 +90,14 @@ ITEMINFO_KINDS = {
     "inventoryunderitem_base_f": "bipod",
 }
 
-# Last resort for an attachment that inherits straight from a VANILLA attachment
+# Last resort for an attachment that inherits from a VANILLA attachment
 # (`hlc_optic_kobra : optic_aco_grn`). Its nearest ItemInfo then lives on a class
 # that is never in the dump, so there is nothing to read the kind off. The vanilla
 # class-name prefixes are a reliable convention, and this only ever runs on classes
 # that already failed every other test.
+#
+# These also carry `scope = 2` in vanilla, which is what makes them usable to
+# resolve visibility across the dump boundary -- see `_vanilla_attachment_kind`.
 VANILLA_ATTACHMENT_PREFIXES = {
     "optic_": "optic",
     "acc_": "pointer",
@@ -340,11 +343,50 @@ class Config:
         return ""
 
     def _vanilla_attachment_kind(self, root: str, name: str) -> str:
-        rooted = self.root_parent(root, name)
-        for prefix, kind in VANILLA_ATTACHMENT_PREFIXES.items():
-            if rooted.startswith(prefix):
-                return kind
+        """Kind from a vanilla attachment class anywhere in the ancestry.
+
+        Scans the whole chain, not just `root_parent`. Testing only the terminal
+        root fails as soon as a mod *redefines* a vanilla class, because the chain
+        then stops inside the dump:
+
+            hlc_optic_ATACR -> hlc_optic_atacr_offset -> hlc_optic_zf95base
+                            -> optic_lrps          (NIArms patches it as `: ItemCore`)
+            root_parent == "itemcore"
+
+        `optic_lrps` is right there in the chain; the old check just never looked
+        at it. Only `hlc_optic_HensoldtZO_Lo` classified correctly, and only because
+        it happens to end at `optic_aco`, which NIArms does not redefine.
+        """
+        for ancestor in self.chain(root, name) + [self.root_parent(root, name)]:
+            for prefix, kind in VANILLA_ATTACHMENT_PREFIXES.items():
+                if ancestor.startswith(prefix):
+                    return kind
         return ""
+
+    def _effective_scope(self, root: str, name: str) -> int:
+        """`scope`, supplying vanilla's value where the dump cannot reach it.
+
+        Attachments routinely inherit scope from a vanilla optic instead of
+        declaring their own:
+
+            hlc_optic_VOMZ -> optic_lrps      scope resolves to nothing
+
+        Vanilla `optic_LRPS` carries `scope = 2`, but it is not in the dump, so the
+        chain runs out and the item looks hidden -- while the game lists it quite
+        happily. Weapons never hit this: mods always declare `scope = 2` on their
+        own weapon classes.
+
+        So: no scope anywhere in the chain, but the chain reaches a known vanilla
+        attachment class, means 2. That is filling in a value the dump is missing,
+        not guessing -- every vanilla attachment is scope 2. A class that really is
+        hidden says so explicitly with `scope = 1`, which is honoured as normal.
+        """
+        raw = self.resolve(root, name, "scope")
+        if raw is not None:
+            return _as_int(raw, 0)
+        if self._vanilla_attachment_kind(root, name):
+            return 2
+        return 0
 
     def items(self) -> list[Item]:
         out: list[Item] = []
@@ -364,7 +406,7 @@ class Config:
                         config_root=root,
                         props=props,
                         kind=self.detect_kind(root, key),
-                        scope=_as_int(self.resolve(root, key, "scope", 0)),
+                        scope=self._effective_scope(root, key),
                         scope_arsenal=None if scope_arsenal is None else _as_int(scope_arsenal),
                         display_name=self.text(self.resolve(root, key, "displayName", "")),
                         model=_norm_path(self.resolve(root, key, "model", "")),
@@ -391,7 +433,28 @@ class Config:
 
     def arsenal_items(self) -> list[Item]:
         wanted = set(self.kinds)
-        return [i for i in self.items() if i.kind in wanted and i.is_arsenal_visible]
+        return [
+            i for i in self.items()
+            if i.kind in wanted and i.is_arsenal_visible and i.display_name.strip()
+        ]
+
+    def unnamed_items(self) -> list[Item]:
+        """Arsenal-visible items whose displayName does not resolve.
+
+        Grouping is entirely display-name based, so these cannot be grouped and are
+        left out of `arsenal_items`. They are almost always vanilla classes the mod
+        merely *patches* -- `optic_LRPS`, `muzzle_snds_H` -- whose name lives on the
+        vanilla class and so is not in the dump. Those belong to a vanilla compat,
+        not this one, and mapping them would collapse unrelated items into a single
+        entry labelled "".
+
+        Exposed rather than silently dropped so the tools can report the count.
+        """
+        wanted = set(self.kinds)
+        return [
+            i for i in self.items()
+            if i.kind in wanted and i.is_arsenal_visible and not i.display_name.strip()
+        ]
 
 
 # ---------- displayName convention ----------
@@ -430,6 +493,113 @@ def parse_display_name(display_name: str) -> tuple[str, tuple[str, ...]]:
     base = match.group(1).strip()
     tokens = tuple(t.strip() for t in _TOKEN_SEP.split(match.group(2)) if t.strip())
     return base, tokens
+
+
+def decompose_display_name(
+    display_name: str, compose: dict | None = None
+) -> tuple[str, tuple[str, ...], dict[str, str]]:
+    """parse_display_name, plus a pass for names built by composition.
+
+    Some mods write an item and everything bolted to it as one name. Tier One
+    writes optics that way, and lasers with the host weapon on the front:
+
+        Micro T-2/Leap/G33/LT 5/8       -> "Micro T-2"  mount LEAP, magnifier G33, riser LT58
+        M4BII // LA-5B/M600V (Tan)/alt  -> "LA-5B"      light M600V, variant ALT, token Tan
+
+    Without this every composition is its own base name and its own arsenal row --
+    the Micro T-2 alone spans thirteen.
+
+    Splitting on the separator cannot work, because component names contain it too:
+    "LT 5/8", "UTG 3/50", "AN/PVS-10", "SpecterDR 1.5x/6x". Parts are matched
+    against the declared vocabulary instead, longest first, and only where the
+    separator immediately precedes them -- so a name that merely *contains*
+    "UTG 3/50" keeps it whole.
+
+    Returns (base, tokens, values).
+    """
+    base, tokens = parse_display_name(display_name)
+    if not compose:
+        return base, tokens, {}
+
+    parts = compose.get("parts") or {}
+    separator = str(compose.get("separator") or "/")
+    # Longest first, so "LT 5/8" is preferred over a shorter part inside it.
+    ordered = sorted(
+        ((str(p), (str(av[0]), str(av[1]))) for p, av in parts.items()),
+        key=lambda kv: -len(kv[0]),
+    )
+
+    # Literal trailing strings, for markers parse_display_name cannot see. It
+    # matches "(...)" and "{...}" only, so Tier One's "[2D]" -- the non-PIP build
+    # of a scope -- would otherwise pin sixteen SpecterDR variants to their own
+    # rows AND block the parts below from ever reaching the end of the name.
+    # Unlike the top-level `class_suffixes:`, these match the DISPLAY name.
+    tails = sorted(
+        ((str(s), (str(av[0]), str(av[1]))) for s, av in (compose.get("suffixes") or {}).items()),
+        key=lambda kv: -len(kv[0]),
+    )
+
+    def consume(text: str) -> tuple[str, str, str] | None:
+        """One part or literal tail sitting at the end of `text`."""
+        for part, (axis, value) in ordered:
+            tail = separator + part
+            if text.endswith(tail) and len(text) > len(tail):
+                return text[: -len(tail)].strip(), axis, value
+        for suffix, (axis, value) in tails:
+            if text.endswith(suffix) and len(text) > len(suffix):
+                return text[: -len(suffix)].strip(), axis, value
+        return None
+
+    def strip(text: str) -> tuple[str, dict[str, str], list[str]]:
+        """Strip composed parts off the end, right to left.
+
+        Where a bracket marker blocks the way it is stepped over SPECULATIVELY and
+        the step kept only if it exposes another part. That conditional is the whole
+        safety argument. Tier One writes two markers on one item --
+
+            LA-5B/M600V (Tan) (Laser)   -> "LA-5B"  light M600V, camo Tan, beam Laser
+
+        -- so the colour has to come off before "/M600V" is reachable. But stripping
+        brackets repeatedly and unconditionally would also turn
+
+            HK416 D10 (SMR/CTR) (Desert)  -> "HK416 D10"   instead of "HK416 D10 (SMR/CTR)"
+
+        and break every `bases:` table that relies on parse_display_name's single
+        strip -- including Tier One's own weapon half, in the same overrides file.
+        Speculation separates the two: "HK416 D10" matches no part, so the step is
+        reverted and the base stands. A mod that declares no `compose:` table has no
+        vocabulary to match, so nothing is ever kept and the result is unchanged.
+        """
+        values: dict[str, str] = {}
+        toks: list[str] = []
+        while True:
+            hit = consume(text)
+            if hit:
+                text, axis, value = hit
+                values[axis] = value
+                continue
+            inner, more = parse_display_name(text)
+            if more and inner != text:
+                sub_text, sub_values, sub_toks = strip(inner)
+                if sub_values:  # the step paid for itself -- commit it
+                    text = sub_text
+                    values.update(sub_values)
+                    toks[:0] = sub_toks + list(more)
+                    continue
+            return text, values, toks
+
+    base, values, extra_toks = strip(base)
+    toks = extra_toks + list(tokens)
+
+    # "M4BII // LA-5B": the host weapon, which class_prefixes already reads off the
+    # class name far more reliably. Dropping it merges the per-weapon copies.
+    platform_separator = compose.get("platform_separator")
+    if platform_separator and platform_separator in base:
+        base, more_values, more_toks = strip(base.split(str(platform_separator), 1)[1].strip())
+        values.update(more_values)
+        toks = more_toks + toks
+
+    return base, tuple(toks), values
 
 
 # ---------- arsenal reachability ----------

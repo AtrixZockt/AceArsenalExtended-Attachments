@@ -7,9 +7,8 @@ class CfgPatches {
         weapons[] = {};
         requiredVersion = REQUIRED_VERSION;
         // Genuine dependencies, unlike a compat addon: this is useless without
-        // ACEAX, and it MUST load after aceax_arsenal so that
-        //   - our rightTabContent property wins the config merge, and
-        //   - our ace_arsenal_rightPanelFilled handler registers after ACEAX's.
+        // ACEAX, and it MUST load after aceax_arsenal so that our
+        // ace_arsenal_rightPanelFilled handler registers after ACEAX's.
         requiredAddons[] = {"ace_arsenal", "aceax_arsenal", "aceax_gearinfo"};
         author = "DiGii";
         VERSION_CONFIG;
@@ -29,20 +28,29 @@ class RscButton;
 
 class ace_arsenal_display {
     class controls {
-        // Override exactly ONE property of ACE's existing control.
+        // ACE's own controls are deliberately NOT patched here.
         //
-        // ACEAX forks leftTabContent by redeclaring it in full, which means it
-        // carries a copy of ACE's geometry and colours that can drift. Merging a
-        // single property instead leaves parentage, position and styling
-        // inheriting from ACE, so an ACE UI change flows through rather than
-        // being silently overridden.
+        // An earlier version added a single property to rightTabContent:
         //
-        // Our handler calls ace_arsenal_fnc_onSelChangedRight first, so ACE's
-        // own behaviour (equipping the item, updating the weight readout) is
-        // unchanged; we only add the option panel afterwards.
-        class rightTabContent {
-            onLBSelChanged = QUOTE(_this call FUNC(onSelChangedRight));
-        };
+        //     class rightTabContent { onLBSelChanged = ...; };
+        //
+        // Re-declaring an existing class without restating its parent RESETS that
+        // parent. ACE defines `rightTabContent: leftTabContent`, so this quietly
+        // turned it into a class with no base at all -- losing its type, style and
+        // geometry. The RPT said so plainly:
+        //
+        //     Updating base class 'leftTabContent'->'', by '...aceaxatt_main'
+        //     Warning: no type entry inside class
+        //              ace_arsenal_display/controls/rightTabContent
+        //
+        // and the arsenal's whole attachment panel rendered as nothing.
+        //
+        // Restating the parent would fix it, but doing config surgery on another
+        // mod's control means the last addon to patch it wins. The selection
+        // handler is attached at runtime instead -- see XEH_postInit.sqf --
+        // which adds alongside ACE's rather than replacing it.
+        //
+        // Only NEW classes below this line.
 
         // Mirror of ACEAX's leftTabCustom, on the right-hand column.
         // rightTabContent sits at safeZoneX + safeZoneW - 93 grid units and is

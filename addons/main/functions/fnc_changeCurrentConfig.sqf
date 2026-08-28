@@ -63,5 +63,10 @@ _ctrlPanel lbSetText [_i, _displayName];
 _ctrlPanel lbSetTooltip [_i, format ["%1\n%2", _displayName, _newValue]];
 _ctrlPanel lbSetPicture [_i, getText (_config >> "picture")];
 
-// Equips it and refreshes the option panel.
-[_ctrlPanel, _i] call FUNC(onSelChangedRight);
+// Rewriting the row's data does not fire LBSelChanged -- the selected index has
+// not changed -- so ACE is asked to equip the swapped-in class directly. Doing it
+// through ACE rather than calling addWeaponItem here keeps it the single owner of
+// what is actually on the weapon.
+[_ctrlPanel, _i] call ace_arsenal_fnc_onSelChangedRight;
+
+[_display] call FUNC(refreshOptions);

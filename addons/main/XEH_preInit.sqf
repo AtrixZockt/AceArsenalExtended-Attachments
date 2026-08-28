@@ -24,6 +24,10 @@ GVAR(idcToConfig) = createHashMap;
 // weapon currently selected. This is what restricts the dropdown to values that
 // fit this weapon, and it is rebuilt on every fill.
 GVAR(allowedItems) = createHashMap;
+// False when the collapse did not run -- switched off, a slot we do not handle, or
+// fnc_collapsePanel bailed. The option panel stays down in that case: dropdowns over
+// a list that still holds every duplicate would be worse than no dropdowns.
+GVAR(collapsed) = false;
 GVAR(adjustedHeight) = 0;
 
 [
@@ -32,5 +36,17 @@ GVAR(adjustedHeight) = 0;
     [LSTRING(SettingEnabled), LSTRING(SettingEnabledTip)],
     "ACE Arsenal Extended",
     true,
+    true
+] call CBA_fnc_addSetting;
+
+// This addon patches a control belonging to someone else's mod, so when it goes
+// wrong the useful question is always "what did the collapse actually see". Worth
+// a permanent toggle rather than a debug build.
+[
+    QGVAR(debug),
+    "CHECKBOX",
+    [LSTRING(SettingDebug), LSTRING(SettingDebugTip)],
+    "ACE Arsenal Extended",
+    false,
     true
 ] call CBA_fnc_addSetting;

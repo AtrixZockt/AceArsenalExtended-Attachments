@@ -1,5 +1,6 @@
 PREP(currentSlot);
 PREP(onRightPanelFilled);
+PREP(collapsePanel);
 PREP(onSelChangedRight);
 PREP(refreshOptions);
 PREP(generateOptionsUI);

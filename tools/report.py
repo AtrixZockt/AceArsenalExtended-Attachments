@@ -45,7 +45,7 @@ def tex_tail(t: str) -> str:
     return t.rsplit("\\", 1)[-1]
 
 
-def summary(items: list[Item]) -> None:
+def summary(items: list[Item], unnamed: list[Item]) -> None:
     """Per-pack counts, broken down by arsenal tab.
 
     The tab breakdown is what tells you whether `kinds:` in mod.yml is picking up
@@ -66,6 +66,11 @@ def summary(items: list[Item]) -> None:
         f"{'TOTAL':<20}{len(items):>7}{len({p3d_name(w) for w in items}):>7}  "
         + ", ".join(f"{k} {n}" for k, n in sorted(total_kinds.items()))
     )
+    if unnamed:
+        print(
+            f"\n{len(unnamed)} arsenal-visible item(s) skipped -- no display name to group on "
+            "(usually vanilla classes the mod only patches)"
+        )
 
 
 def detail(items: list[Item], packs: list[str], by_p3d: bool) -> None:
@@ -407,7 +412,7 @@ def main() -> int:
             elif args.packs:
                 detail(items, args.packs, args.p3d)
             else:
-                summary(items)
+                summary(items, config.unnamed_items())
             result = 0
 
     if args.out:

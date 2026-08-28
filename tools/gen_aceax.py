@@ -23,7 +23,7 @@ import yaml
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import modinfo  # noqa: E402
-from modconfig import Config, Item, parse_display_name, unproven_variants  # noqa: E402
+from modconfig import Config, Item, decompose_display_name, unproven_variants  # noqa: E402
 
 REPO = modinfo.REPO
 ADDON = modinfo.ADDON
@@ -72,6 +72,11 @@ def collect(config: Config, ov: dict) -> tuple[list[Model], list[str], set[str]]
     # str() guards against YAML 1.1 turning a bare YES/NO/ON/OFF value into a bool
     tokens = {k: (a, str(v)) for k, (a, v) in ov["tokens"].items()}
     suffixes = {k: (a, str(v)) for k, (a, v) in ov["class_suffixes"].items()}
+    # Mirror of class_suffixes for mods that put the discriminator at the front.
+    # Tier One ships every accessory once per weapon platform -- 23 classes all
+    # called "LA-5B" -- and only the class name says which is which:
+    #   Tier1_10_LA5_Side, Tier1_416_LA5_Side, Tier1_MCX_LA5_Side, ...
+    prefixes = {k: (a, str(v)) for k, (a, v) in (ov.get("class_prefixes") or {}).items()}
     per_item: dict[str, dict] = {k.lower(): v for k, v in (ov.get("weapons") or {}).items()}
     opts: dict[str, dict] = ov["options"]
 
@@ -87,8 +92,14 @@ def collect(config: Config, ov: dict) -> tuple[list[Model], list[str], set[str]]
 
     bases: dict[str, dict] = ov.get("bases") or {}
 
+    # Names built by composition -- "Micro T-2/Leap/G33/LT 5/8". Absent for most
+    # mods, in which case decompose_display_name is exactly parse_display_name.
+    # Note the `bases:` lookup below is keyed on the DECOMPOSED base, so a rule
+    # there matches the stem rather than every composition of it.
+    compose: dict = ov.get("compose") or {}
+
     for item in config.arsenal_items():
-        base, toks = parse_display_name(item.display_name)
+        base, toks, parts = decompose_display_name(item.display_name, compose)
         values: dict[str, str] = {}
         extra: list[str] = []
         pack_override: str | None = None
@@ -107,6 +118,10 @@ def collect(config: Config, ov: dict) -> tuple[list[Model], list[str], set[str]]
                 else:
                     values[axis] = str(value)
 
+        # Parts read out of the composed name. Same standing as display-name
+        # tokens, which follow and may override them.
+        values.update(parts)
+
         position = 0
         for tok in toks:
             if tok in splitters:
@@ -121,6 +136,9 @@ def collect(config: Config, ov: dict) -> tuple[list[Model], list[str], set[str]]
                 unknown.add(tok)
 
         lowered = item.name.lower()
+        for prefix, (axis, value) in prefixes.items():
+            if lowered.startswith(prefix.lower()):
+                values[axis] = value
         for suffix, (axis, value) in suffixes.items():
             if lowered.endswith(suffix.lower()):
                 values[axis] = value
@@ -225,6 +243,9 @@ def order_values(axis: str, members: list[Member], ov: dict) -> list[str]:
     wanted = set(camo_axes) if axis in camo_axes else {axis}
     canonical += [str(v) for _, (a, v) in ov["tokens"].items() if a in wanted]
     canonical += [str(v) for _, (a, v) in ov["class_suffixes"].items() if a == axis]
+    canonical += [
+        str(v) for _, (a, v) in (ov.get("class_prefixes") or {}).items() if a == axis
+    ]
     used = {m.values[axis] for m in members}
     ordered = [v for v in dict.fromkeys(canonical) if v in used]
     # anything introduced only by a per-weapon override lands at the end
@@ -514,6 +535,17 @@ def main() -> int:
         print(f"\n{len(unknown)} unmapped displayName token(s) -- add to overrides.yml tokens:")
         for t in sorted(unknown):
             print(f"  {t!r}")
+
+    # Usually vanilla classes the source mod only patches, whose displayName lives
+    # on the vanilla class and so is not in the dump. Nothing to do about them --
+    # they belong to a vanilla compat -- but they should not vanish silently.
+    unnamed = config.unnamed_items()
+    if unnamed:
+        print(f"\n{len(unnamed)} item(s) skipped: no display name to group on")
+        for i in unnamed[:10]:
+            print(f"  {i.kind:<10} {i.name}")
+        if len(unnamed) > 10:
+            print(f"  ... and {len(unnamed) - 10} more")
 
     spanning = [m for m in models if len(m.member_packs) > 1]
     if spanning:

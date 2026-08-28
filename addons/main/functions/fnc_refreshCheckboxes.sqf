@@ -28,6 +28,10 @@ private _options = ["CfgWeapons", _model, _modelDefinition, "options", _allowedI
     private _optionIndex = _forEachIndex;
     _x params ["", "", "", "", "_values", "", "_alwaysSelectable"];
 
+    // Single-value options are not drawn (see fnc_generateOptionsUI), so there are
+    // no controls to refresh. The index is still consumed, to stay aligned.
+    if ((count _values) < 2) then { continue };
+
     private _currentValue = GVAR(currentModelOptions) param [_optionIndex, ""];
 
     {

@@ -4,7 +4,7 @@ How to make a weapon mod's attachments collapse into dropdowns. Assumes no prior
 toolchain.
 
 The example throughout is **Tier One Weapons** (Workshop `2268351256`), which ships 541
-arsenal-visible attachments that fold into 186 rows.
+arsenal-visible attachments that fold into 47 rows.
 
 ---
 
@@ -130,6 +130,32 @@ agree with into `bases:` and add the axes, or use `--families --write` to insert
 **Read [OPTIONS.md](OPTIONS.md) before naming your axes.** Attachment compats will be written by
 different people against different mods; using the same names for the same concepts is what stops
 the arsenal feeling like a patchwork.
+
+### If the base names are still full of separators
+
+Look at the family list. If most base names carry a `/` — or whatever the mod uses — the mod is
+writing an item *and everything bolted to it* into one display name, and no amount of `bases:` will
+keep up. Tier One does this throughout:
+
+```
+Micro T-2      Micro T-2/3X      Micro T-2/Leap/G33/LT 5/8      Micro T-2/Low Mount   ...
+```
+
+That is thirteen rows for one red dot, and **148 of Tier One's 186 base names** were like it. The
+`compose:` table declares the parts once and every combination folds into a single entry — it is
+what takes those 541 attachments from 186 rows to 47.
+
+Do not reach for `str.split()` thinking: component names contain the separator too (`LT 5/8`,
+`UTG 3/50`, `AN/PVS-10`). `compose:` matches a declared vocabulary, longest-first, anchored to the
+separator. The full shape is in **[OPTIONS.md § `compose:`](OPTIONS.md#compose)**.
+
+### Before you go further: check the axes are independent
+
+Once entries get large, the trap is an axis that only means anything when another axis is set. It
+does not look like a bug in the config — it looks like a working dropdown that hands the player the
+wrong item. `verify.py` in the next step is what catches it, reported as *"N variants reachable only
+via the weak-match fallback"*. A large count there means **split the entry**, not merge harder;
+OPTIONS.md has the worked example.
 
 ## Step 7 — Generate, build, verify
 

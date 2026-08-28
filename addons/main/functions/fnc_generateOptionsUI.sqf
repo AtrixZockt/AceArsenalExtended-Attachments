@@ -53,9 +53,32 @@ private _currentFaction = if (!isNull player) then { faction player } else { "" 
 
 private _options = ["CfgWeapons", _model, _modelDefinition, "options", _allowedItems] call GEARINFO(getModelOptions);
 
+// An option narrowed to a single value cannot be changed, so drawing it is noise.
+//
+// This is routine for attachments rather than an edge case. A mod that ships the
+// same accessory once per weapon platform needs a `platform` axis to keep its
+// classes distinct in the config -- Tier One has 23 classes all called "LA-5B" --
+// but for any one weapon only that weapon's platform is compatible, so the axis
+// collapses to one value. It does its job in the config and stays out of the panel.
+private _drawable = _options select {(count (_x select 4)) > 1};
+
+if (_drawable isEqualTo []) exitWith {
+    _listControl ctrlSetPositionH (safeZoneH - 28 * GRID_H);
+    _configControl ctrlSetPositionY ((safeZoneY + 14 * GRID_H) + (safeZoneH - 28 * GRID_H));
+    _configControl ctrlSetPositionH 0;
+    _listControl ctrlCommit 0.2;
+    _configControl ctrlCommit 0.2;
+};
+
+// NB: iterate the full list, not _drawable. _optionIndex is the index into the
+// model's options[] array -- refreshCheckboxes recomputes control IDCs from it and
+// changeCurrentConfig uses it to index currentModelOptions -- so the skipped ones
+// still have to consume their index.
 {
     private _optionIndex = _forEachIndex;
     _x params ["_optionName", "_optionLabel", "", "", "_values", "_optionCenterImage"];
+
+    if ((count _values) < 2) then { continue };
 
     private _titleIdc = IDC_OPTION_TITLE_BASE + _optionIndex;
     GVAR(valuesIdc) pushBack _titleIdc;

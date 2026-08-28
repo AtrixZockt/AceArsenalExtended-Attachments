@@ -202,6 +202,10 @@ Run it after `dump_configs.py`. It writes every section the generator requires (
 - **`camo_values_from_aceax:`** — read live from the installed ACEAX, not hand-copied
 - **`options:` / `option_order:` / `option_bases:`** — skeletons for the axes the tokens produced
 - **`bases:` / `weapons:` / `positional_axes:`** — left empty; those are the judgement calls
+- **`compose:`** — written out as a commented example, not a live section. Add it only for a mod
+  that writes an item *and its whole accessory stack* into one display name
+  (`Micro T-2/Leap/G33/LT 5/8`). Absent, names parse exactly as they did before the feature existed,
+  which is why it is safe to leave alone. See [OPTIONS.md](OPTIONS.md#compose)
 
 It also flags tokens that appear in more than one capitalisation. Matching is case-**sensitive** and
 that is deliberate: NIArms means a rail kit by `TAC` and a receiver configuration by `Tac`. A mod
@@ -468,8 +472,22 @@ ACEAX resolves a dropdown click by replacing one value in the current item's opt
 looking for an exact match. If there is none it falls back to `fnc_findConfigByValue`, which returns
 the *first* variation holding that value — from a HashMap, whose iteration order Arma does not
 guarantee. The check therefore counts only moves that hold regardless of ordering: exact matches,
-plus values held by exactly one item. A warned model still works; it simply cannot be *proven*
-from the config alone.
+plus values held by exactly one item.
+
+**The count is what tells you which kind of warning it is**, and the difference matters:
+
+- **A handful of variants** usually means a *sparse grid* — the mod simply does not ship every
+  combination, as with the Mk 48, which has no Para furniture in every finish. Those work in
+  practice; they just cannot be *proven* from the config alone. Treat them as the riskier groupings
+  to edit and move on.
+- **A large fraction of the entry** means two axes are **coupled**: one only takes a value when the
+  other does, so no single click can cross between the two halves. That is a genuine bug, not an
+  unprovable one. Tier One's LA-5B reported 177 of 177 because its colour marker describes the
+  weaponlight, not the laser — so `camo` only exists once `light` does. Clicking "M600V" on a bare
+  LA-5B fell through to the fallback and returned another weapon platform's class.
+
+The fix for the second kind is to **split the entry**, not to merge harder. Look for an axis whose
+values never co-occur with another's; `[OPTIONS.md](OPTIONS.md)` has the worked example.
 
 ## 5. Cross-checking against the running game
 

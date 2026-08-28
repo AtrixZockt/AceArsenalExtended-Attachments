@@ -1,6 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project name="ACEAX Attachments">
     <Package name="main">
+        <Key ID="STR_aceaxatt_main_SettingDebug">
+            <English>Log attachment merging</English>
+            <German>Zusammenfassen protokollieren</German>
+        </Key>
+        <Key ID="STR_aceaxatt_main_SettingDebugTip">
+            <English>Write what the merge sees to the RPT every time the right panel is filled: each row, the model it resolved to, and how many rows are removed. For diagnosing a panel that looks wrong.</English>
+            <German>Schreibt bei jedem Aufbau des rechten Fensters ins RPT, was das Zusammenfassen sieht: jede Zeile, das zugeordnete Modell und wie viele Zeilen entfernt werden. Zur Fehlersuche.</German>
+        </Key>
         <Key ID="STR_aceaxatt_main_SettingEnabled">
             <English>Merge weapon attachments</English>
             <German>Waffenzubehör zusammenfassen</German>
