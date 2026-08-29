@@ -16,8 +16,8 @@ anyone can build an attachment compat from one clone.
 | to build a compat | copy `tools/` elsewhere -- see [ATTACHMENT_COMPAT.md](ATTACHMENT_COMPAT.md) |
 
 Because there is no `mod.yml` here, the commands below are for the compat repo you create, not for
-this one. Everything from "Before you start" down is the shared toolchain reference, identical in
-the NIArms, BWmod and Military Gear Pack repos.
+this one. Everything from "Before you start" down is the shared toolchain reference — copy this file
+into your compat alongside `tools/` if you want it to hand.
 
 ---
 
@@ -115,9 +115,9 @@ read the file diff: it tells you exactly which arsenal entries changed.
 Most of the first hour is now automated. The short version:
 
 ```
-mkdir  E:/GitHub/AceArsenalExtended_Foo && cd $_
-cp -r  ../AceArsenalExtended_Attachments/tools .  # the .py files are mod-agnostic
-rm     tools/mod.yml tools/overrides.yml         # those two are per-mod
+git clone https://github.com/AtrixZockt/AceArsenalExtended-Attachments
+mkdir  AceArsenalExtended_Foo && cd $_
+cp -r  ../AceArsenalExtended-Attachments/tools .  # the .py files are mod-agnostic
 
 python tools/init_mod.py <workshop_id> --prefix aceaxfoo --model-prefix foo
 #      ... create the six scaffold files it lists ...

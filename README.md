@@ -64,20 +64,28 @@ loadouts, missions and templates keep working.
 
 ## For modders
 
-`tools/` holds the generator that produces the grouping data — the same one behind the NIArms,
-BWmod, Military Gear Pack and Tier One compats. It reads a mod's configs, works out which
-attachments are variants of each other from their display names and class names, and writes the
-`XtdGearModels` / `XtdGearInfos` config for you.
+`tools/` holds the generator that produces the grouping data. It reads a mod's configs off disk,
+works out which items are variants of each other from their display names and class names, and
+writes the `XtdGearModels` / `XtdGearInfos` config for you. You write one YAML file; everything
+under `addons/main/` is generated.
 
-**Start at [docs/ATTACHMENT_COMPAT.md](docs/ATTACHMENT_COMPAT.md).**
+It is not attachment-only — the same generator builds weapon and gear compats, and has been run
+against mods ranging from 121 attachments to 841 pieces of gear.
+
+**Start with whichever fits what you are covering:**
 
 | | |
 |---|---|
-| [docs/ATTACHMENT_COMPAT.md](docs/ATTACHMENT_COMPAT.md) | build an attachment compat, start to finish |
+| [docs/ATTACHMENT_COMPAT.md](docs/ATTACHMENT_COMPAT.md) | a weapon mod's **optics, lasers, muzzles, bipods** — the case this addon exists for |
+| [docs/NEW_COMPAT.md](docs/NEW_COMPAT.md) | **weapons or gear**, with or without attachments — the longer, more general walkthrough |
+
+Then, either way:
+
+| | |
+|---|---|
 | [docs/OPTIONS.md](docs/OPTIONS.md) | the shared option-name vocabulary — read this before inventing your own |
-| [docs/NEW_COMPAT.md](docs/NEW_COMPAT.md) | the full walkthrough for a compat of any kind, gear included |
-| [docs/WORKFLOW.md](docs/WORKFLOW.md) | day-to-day tooling reference, and what every warning means |
-| [docs/TESTING.md](docs/TESTING.md) | how this addon is verified, including layering onto someone else's compat |
+| [docs/WORKFLOW.md](docs/WORKFLOW.md) | day-to-day tooling reference, and what every message means |
+| [docs/TESTING.md](docs/TESTING.md) | how this addon is verified, and the bugs that actually shipped |
 
 Two things worth knowing before you start:
 

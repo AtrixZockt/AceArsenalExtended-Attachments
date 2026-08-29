@@ -31,17 +31,22 @@ restart. This is the escape hatch if an ACE update ever breaks the fork.
 
 ## 3. Toolchain is a no-op on existing compats
 
-The `tools/` here are the same generator the NIArms, BWmod and Military Gear Pack compats use, with
-attachment kinds added. Generating those three with these tools must produce byte-identical output
-to generating them with their own:
+`tools/` here is one generator serving every compat, so a change made for one mod must not silently
+alter another. **Any change to `tools/*.py` is guarded the same way**, and it is the check to run
+first — before worrying about whether the new feature works:
 
 ```
-python tools/gen_aceax.py     # in a copy of each repo
+python tools/gen_aceax.py      # in a throwaway copy of each existing compat
 diff -r old/addons new/addons  # must be empty
 ```
 
-Verified: identical for all three. A compat with no `kinds:` line means weapons only, so attachment
-support cannot leak into an existing repo.
+Run it in a *copy*, not in place; regenerating a compat you did not mean to touch is a poor way to
+find out the guard would have failed.
+
+This has held for every feature added so far — attachment kinds, `compose:`, `name_prefixes:`, the
+vanilla gear and backpack fallbacks — because each is reachable only through a key the older compats
+do not set, or only after the normal path has already failed. A compat with no `kinds:` line means
+weapons only, so attachment support cannot leak into an existing repo either.
 
 ---
 
@@ -62,7 +67,7 @@ So an attachments-only compat has to sit on top of a stranger's work and not col
 
 ```
 CBA + ACE + ACEAX core + @aceax_compat_tier1 + Tier One Weapons
-    + @aceaxatt + our Tier One attachments compat
+    + @aceaxatt + the Tier One attachments compat
 ```
 
 | check | expected |
@@ -86,8 +91,8 @@ theirs.
 
 ### What it came out at
 
-`AceArsenalExtended_Tier1_Att` builds clean: **541 attachments → 47 rows**, 38 entries plus 9 with
-no sibling, and **zero** weak-match warnings.
+The resulting compat — published as **ACEAX Tier One Attachments** — builds clean: **541 attachments
+→ 47 rows**, 38 entries plus 9 with no sibling, and **zero** weak-match warnings.
 
 Getting there from 186 rows needed `compose:` — Tier One writes an optic and its whole accessory
 stack into one name (`Micro T-2/Leap/G33/LT 5/8`), so every combination was its own row. See

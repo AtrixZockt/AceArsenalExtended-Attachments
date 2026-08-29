@@ -46,16 +46,28 @@ hard-failing the game.
 
 ## Step 1 — Copy the toolchain
 
+The generator lives in this repo, so start by cloning it, then copy `tools/` into a new folder
+beside it — one folder per compat:
+
 ```
-mkdir E:/GitHub/AceArsenalExtended_Tier1Att
-cd    E:/GitHub/AceArsenalExtended_Tier1Att
-cp -r ../AceArsenalExtended_Attachments/tools .
+git clone https://github.com/AtrixZockt/AceArsenalExtended-Attachments
+mkdir AceArsenalExtended_YourMod
+cd    AceArsenalExtended_YourMod
+cp -r ../AceArsenalExtended-Attachments/tools .
 ```
+
+You do not need the addon built or installed to get this far — only the `tools/` folder. (You *will*
+need the addon itself subscribed to see the result in game, which is Step 8.)
 
 The `.py` files carry no mod identity. Everything specific to your mod lives in the two YAML files
 you are about to generate.
 
 ## Step 2 — Scan the mod
+
+The example throughout uses Tier One Weapons; substitute your mod's Workshop ID and your own
+prefixes. `--prefix` names the PBO and `--model-prefix` the generated config classes, and both must
+be unique across every compat anyone might load at once — so pick something short and specific to
+your mod, not `aceax`/`vsm`/`t1a`.
 
 ```
 python tools/init_mod.py 2268351256 --prefix aceaxt1a --model-prefix t1a --author "You" --kinds attachment
@@ -79,9 +91,10 @@ class and every generated model class. Two compats sharing one would blend into 
 
 ## Step 3 — The scaffold
 
-`init_mod.py` writes only `mod.yml`; it prints the rest. Copy them from any existing compat and
-change the marked values: `.hemtt/project.toml`, `.hemtt/launch.toml`, `mod.cpp`, `.gitignore`,
-`LICENSE`, and `addons/main/$PBOPREFIX$` containing `z\<yourprefix>\addons\main`.
+`init_mod.py` writes only `mod.yml`; it prints the rest. Copy them out of the repo you cloned in
+Step 1 — it has all of them — and change the marked values: `.hemtt/project.toml`,
+`.hemtt/launch.toml`, `mod.cpp`, `.gitignore`, `LICENSE`, and `addons/main/$PBOPREFIX$` containing
+`z\<yourprefix>\addons\main`.
 
 > Write `$PBOPREFIX$` with a text editor. `\a` is the BEL escape, so
 > `printf 'z\\aceaxt1a\\addons\\main'` silently writes `z<BEL>ceaxt1a<BEL>ddons\main` and `hemtt
@@ -130,6 +143,33 @@ agree with into `bases:` and add the axes, or use `--families --write` to insert
 **Read [OPTIONS.md](OPTIONS.md) before naming your axes.** Attachment compats will be written by
 different people against different mods; using the same names for the same concepts is what stops
 the arsenal feeling like a patchwork.
+
+### If the same name appears many times over
+
+The most common thing to hit on an attachment mod: it ships one accessory **once per weapon it fits**,
+with identical display names. Nothing in the name says which is which, so they all land on the same
+option combination — and `gen_aceax.py --check` refuses to generate, reporting pairs that
+*"both map to"* the same values.
+
+That refusal is doing real work. ACEAX keys a HashMap on the option tuple, so duplicates overwrite
+each other and clicking a dropdown value could hand the player an accessory their weapon cannot take.
+
+Only the class name distinguishes them, so derive an axis from it with
+[`class_prefixes:`](OPTIONS.md#class_prefixes-and-class_suffixes):
+
+```yaml
+class_prefixes:
+  "Mod_Rifle1_": [platform, RIFLE1]
+  "Mod_Rifle2_": [platform, RIFLE2]
+```
+
+**You never see that dropdown.** Only one platform is ever compatible with the weapon in your hands,
+so the arsenal narrows the axis to one value and the addon hides options that cannot be changed. It
+exists purely to keep the config unambiguous.
+
+If the discriminator is at the *end* of the class name instead, `class_suffixes:` is the mirror; if
+it is on the front of the **display** name — common on gear — see
+[`name_prefixes:`](OPTIONS.md#name_prefixes).
 
 ### If the base names are still full of separators
 

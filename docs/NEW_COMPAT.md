@@ -27,15 +27,20 @@ The mod must be *installed*, not just favourited — the tooling reads its PBOs 
 
 ## Step 1 — Create the folder and copy the tools
 
+The generator lives in the ACEAX Attachments repo. Clone it, then copy `tools/` into a new folder
+beside it — one folder per compat:
+
 ```
-mkdir E:/GitHub/AceArsenalExtended_Foo
-cd    E:/GitHub/AceArsenalExtended_Foo
-cp -r ../AceArsenalExtended_Attachments/tools .
-rm    tools/mod.yml tools/overrides.yml
+git clone https://github.com/AtrixZockt/AceArsenalExtended-Attachments
+mkdir AceArsenalExtended_Foo
+cd    AceArsenalExtended_Foo
+cp -r ../AceArsenalExtended-Attachments/tools .
 ```
 
-Copy `tools/` from **any** existing compat — the `.py` files are meant to be byte-identical between
-them and carry no mod identity. The two `.yml` files are the per-mod half, so delete them; you are
+That repo is the addon, not a compat, so its `tools/` holds only the `.py` files — nothing to clean
+up. An existing compat is an equally good source if you already have one, since the `.py` files are
+meant to be byte-identical between them and carry no mod identity; in that case also
+`rm tools/mod.yml tools/overrides.yml`, because those two are the per-mod half. Either way you are
 about to generate your own.
 
 ---
@@ -152,8 +157,8 @@ them, there is no arsenal content in that PBO.
 
 ## Step 4 — Create the scaffold files
 
-`init_mod.py` writes only `mod.yml`. These six you create yourself. Copy them from an existing
-compat and change the marked values.
+`init_mod.py` writes only `mod.yml`. These six you create yourself — the repo you cloned in Step 1
+has one of each to copy, and the values to change are marked below.
 
 **`.hemtt/project.toml`**
 
@@ -214,7 +219,7 @@ z\aceaxfoo\addons\main
 > shell with `printf 'z\\aceaxfoo\\addons\\main'` silently produces `z<BEL>ceaxfoo<BEL>ddons\main`
 > and `hemtt build` then fails with a confusing `failed to create directory` error.
 
-**`.gitignore`** and **`LICENSE`** — copy both from an existing compat unchanged.
+**`.gitignore`** and **`LICENSE`** — copy both unchanged out of the repo you cloned in Step 1.
 
 > `addons/main/config.cpp` and everything under `addons/main/XtdGearModels/` and `XtdGearInfos/`
 > are **generated**. Never create or edit those by hand; they get overwritten.
@@ -371,6 +376,27 @@ bases:
 
 Neither call is forced by the tooling. Pick whichever makes the arsenal easier to use.
 
+### When the distinction is not in a `(marker)` at all
+
+`bases:` can express anything, but if a mod is *systematically* awkward you will be writing a line
+per item. Four tables cover the usual shapes — one line each covers a whole family. Full syntax and
+worked examples are in [OPTIONS.md](OPTIONS.md); this is the map of which to reach for:
+
+| the mod writes… | example | use |
+|---|---|---|
+| the distinction on the **front of the display name** | `[Mod] AOR1 LBT6094 (Gunner)` | [`name_prefixes:`](OPTIONS.md#name_prefixes) |
+| nothing distinguishing at all — only the **class name** differs | 13 classes all called `LA-5B` | [`class_prefixes:`](OPTIONS.md#class_prefixes-and-class_suffixes) / `class_suffixes:` |
+| the item **and everything bolted to it** in one name | `Micro T-2/Leap/G33/LT 5/8` | [`compose:`](OPTIONS.md#compose) |
+| a marker the parser cannot see — `[...]`, or no space before `(` | `Helmet Lite [OD]` | `compose.suffixes:` |
+
+The second is the one that *blocks* generation rather than merely looking untidy: identical names
+land on the same option combination, and `--check` refuses, reporting pairs that *"both map to"* the
+same values. That is deliberate — ACEAX keys a HashMap on the tuple, so duplicates overwrite each
+other and a dropdown click could hand the player an item they cannot use.
+
+Gear mods hit the first row constantly, with camo: one vest written across fifteen camo patterns is
+fifteen rows until the prefix is cut out.
+
 ---
 
 ## Step 9 — Classify the leftover tokens
@@ -458,6 +484,25 @@ TOTAL  74 items = 65 behind 8 entries + 9 standalone
 Every item must appear exactly once. "Standalone" means it had no sibling to group with, which is
 normal and not a failure.
 
+### The one warning that is not cosmetic
+
+`verify.py` may report **"N variants reachable only via the weak-match fallback"**. The count tells
+you which kind it is:
+
+- **A handful** usually means the mod simply does not ship every combination — a sparse grid. Those
+  work in practice; they just cannot be *proven* from the config. Move on.
+- **A large fraction of an entry** means two axes are **coupled**: one only takes a value when the
+  other does. ACEAX changes one option per click, so nothing can cross between the two halves, and
+  clicking a dropdown falls through to a HashMap lookup whose order Arma does not guarantee — the
+  player gets an item you did not pick for them.
+
+The fix for the second is to **split the entry**, not to merge harder. Look for an axis whose values
+never co-occur with another's; [OPTIONS.md](OPTIONS.md) has the worked example.
+
+Before merging two things into one entry, it is worth asking whether every combination of the axes
+actually exists in the mod. If the answer is "no, and the missing ones are systematic", that is the
+same coupling seen from the other side.
+
 ---
 
 ## Step 12 — Test it in the game
@@ -486,7 +531,7 @@ python tools/check_ingame.py           # then compare
 
 ## Step 13 — Publish
 
-Write a `WorkshopDesc.md` (copy the shape from an existing compat), then publish
+Write a `WorkshopDesc.md` (the one in the cloned repo shows the shape), then publish
 `.hemttout/build` with the Arma 3 Launcher's *Publish* tool. Set CBA, ACE3, ACE3 Arsenal Extended
 and the source mod as required items.
 
@@ -495,8 +540,9 @@ and the source mod as required items.
 ## The whole thing, in order
 
 ```
-mkdir E:/GitHub/AceArsenalExtended_Foo && cd E:/GitHub/AceArsenalExtended_Foo
-cp -r ../AceArsenalExtended_Attachments/tools . && rm tools/mod.yml tools/overrides.yml
+git clone https://github.com/AtrixZockt/AceArsenalExtended-Attachments
+mkdir AceArsenalExtended_Foo && cd AceArsenalExtended_Foo
+cp -r ../AceArsenalExtended-Attachments/tools .
 
 python tools/init_mod.py 1234567890 --prefix aceaxfoo --model-prefix foo --author "You"
 #      ... create the scaffold files from step 4 ...

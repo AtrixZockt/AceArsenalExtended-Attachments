@@ -81,7 +81,7 @@ for the Stgw.57, FN30-11 and SG550. Values live per model, so the two uses never
 ### `platform` — for mods that ship one accessory per weapon
 
 Some mods duplicate every accessory once per weapon it can go on, with **identical display names**.
-Tier One Weapons has 23 separate classes all called "LA-5B":
+Tier One Weapons has 13 separate classes all called "LA-5B":
 
 ```
 Tier1_10_LA5_Side   Tier1_145_LA5_Side   Tier1_416_LA5_Side   Tier1_MCX_LA5_Side   ...
@@ -89,11 +89,11 @@ Tier1_10_LA5_Side   Tier1_145_LA5_Side   Tier1_416_LA5_Side   Tier1_MCX_LA5_Side
 
 Left alone that is not merely untidy — those classes land on the same option tuple, and
 `getVariations` keys a HashMap on that tuple, so duplicates overwrite each other and clicking a
-value can hand you an accessory the selected weapon cannot take. Across Tier One it produces **188**
+value can hand you an accessory the selected weapon cannot take. Across Tier One it produces **276**
 such collisions.
 
 Only the class name says which is which, so `platform` is derived with
-[`class_prefixes:`](#class_prefixes) rather than from the display name.
+[`class_prefixes:`](#class_prefixes-and-class_suffixes) rather than from the display name.
 
 **You will never see the dropdown.** Only one platform is ever compatible with the weapon in your
 hands, so the arsenal narrows the axis to a single value and the extension hides options that cannot
@@ -110,7 +110,7 @@ Gear mods do this constantly with camo:
 ```
 
 One vest, fifteen base names — VSM has 89 vest bases for what is really 13 vests.
-[`class_prefixes:`](#class_prefixes) matches the *class* name and `compose:` matches suffixes;
+[`class_prefixes:`](#class_prefixes-and-class_suffixes) matches the *class* name and `compose:` matches suffixes;
 neither reaches this.
 
 ```yaml
@@ -128,7 +128,7 @@ The prefix is cut out of the base, its axis value recorded, and `name_prefix_kee
 `OGA Black` / `OGA OD` have to beat `OGA`. Keep the trailing space in the key so `M81 ` cannot match a
 longer word starting with `M81`.
 
-Applied *before* the [`bases:`](#bases) lookup, so a rule there is written against the stem rather
+Applied *before* the the `bases:` table (see [NEW_COMPAT.md](NEW_COMPAT.md), Step 8) lookup, so a rule there is written against the stem rather
 than against every prefixed spelling of it.
 
 ## `class_prefixes:` and `class_suffixes:`
@@ -189,7 +189,7 @@ trailing `[2D]` does not just strand those variants on their own rows, it sits a
 and blocks every part behind it from ever being reached.
 
 `platform_separator:` drops the prefix rather than mapping it, on the assumption that
-[`class_prefixes:`](#class_prefixes) supplies the same fact from the class name — where it is present
+[`class_prefixes:`](#class_prefixes-and-class_suffixes) supplies the same fact from the class name — where it is present
 for *every* item, not only the ones that spell it out. Confirm that 1:1 mapping before relying on it.
 
 ### Where it stops, deliberately
@@ -202,7 +202,7 @@ nothing composed after it, so the step is reverted and the base stays `HK416 D10
 That conditional is what lets a weapon half and an attachment half share one overrides file. The
 consequence to know about is that **a marker with nothing composed after it stays put**, so the same
 item can arrive under two spellings — `Romeo4T (BCD)` and `Romeo4T (BCD)/G33`. Map the bare spelling
-in [`bases:`](#bases):
+in the `bases:` table (see [NEW_COMPAT.md](NEW_COMPAT.md), Step 8):
 
 ```yaml
 bases:
