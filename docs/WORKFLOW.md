@@ -73,6 +73,30 @@ arsenal-visible item in the dump, under the config root it was mapped under. Exi
 line — every item must appear exactly once, behind an entry or as a standalone row. Reads
 `overrides.yml` live, so it needs no build.
 
+That reconciliation balances only the items the classifier **found**. Anything it failed to classify
+never becomes an arsenal item at all, so it cannot show up as missing — it is simply absent, with no
+error anywhere. `--coverage` prints a one-line nudge when that has happened; the detail is:
+
+```
+python tools/report.py --unclassified
+```
+
+Classes with `scope = 2` and a display name that resolve to no arsenal kind, grouped by the class
+their inheritance ends at, because that terminal names the cause:
+
+| ends at | meaning | fix |
+|---|---|---|
+| a vanilla gear or bag base | the dump holds a body-less forward declaration — a mod writing `class H_HelmetB;` to reference the vanilla class | `modconfig`'s `VANILLA_*` tables should cover it; add the base if not |
+| **another mod's class** | the chain leaves the dump entirely | dump that mod too: `init_mod.py --requires <id>`, which marks it `resolve_only` |
+| a class in your own dump | the mod is doing something unusual | look by hand |
+
+**Not a pass/fail check.** An attachments-only compat legitimately leaves the mod's weapons
+unclassified — Tier One reports 81 for exactly that reason. Read it, do not gate on it.
+
+`CfgVehicles` misses are counted but not listed, because only backpacks are arsenal items there and
+soldier units belong in that bucket — except when the terminal looks like a bag, which is the one
+`CfgVehicles` case that is a real miss.
+
 **8. Test in game.** `hemtt launch arsenal` starts Arma with the required mods and drops you into
 the ACE Arsenal VR mission. Then, in the debug console:
 

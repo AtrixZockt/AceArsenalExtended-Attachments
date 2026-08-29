@@ -36,6 +36,15 @@ import gen_aceax  # noqa: E402
 import modinfo  # noqa: E402
 from modconfig import Config, Item, parse_display_name  # noqa: E402
 
+# scope comes back as an int from a derapified config, but a hand-edited dump can
+# carry it as a string. Cheap to be tolerant, and a miscounted scope would make
+# --unclassified quietly wrong.
+def _scope_of(config: Config, root: str, name: str) -> int:
+    try:
+        return int(config.resolve(root, name, "scope"))
+    except (TypeError, ValueError):
+        return 0
+
 
 def p3d_name(w: Item) -> str:
     return w.model.rsplit("\\", 1)[-1] or "<none>"
@@ -292,6 +301,94 @@ def _cluster(names: list[str]) -> list[list[str]]:
     return groups
 
 
+def _unclassified(config: Config) -> dict[tuple[str, str], list[str]]:
+    """Classes that look like arsenal items but resolve to no kind.
+
+    `scope = 2` and a display name of their own, yet `detect_kind` returns "" --
+    so they are silently not arsenal items. No error, nothing in --coverage,
+    nothing in verify.py. That is the whole point of looking: VSM shipped with 156
+    items invisible this way and it took a bug report about one helmet to notice.
+
+    Keyed on (config root, the class the ancestry ends at), because that terminal
+    is what names the cause -- see the table in `unclassified` below.
+    """
+    found: dict[tuple[str, str], list[str]] = {}
+    for root, classes in config.classes.items():
+        for name in classes:
+            if not config.resolve(root, name, "displayName"):
+                continue
+            if _scope_of(config, root, name) != 2:
+                continue
+            if config.detect_kind(root, name):
+                continue
+            chain = config.chain(root, name)
+            terminal = chain[-1] if chain else config.root_parent(root, name)
+            found.setdefault((root, terminal), []).append(name)
+    return found
+
+
+def unclassified(config: Config) -> int:
+    """Report those classes, grouped by what the chain ends at.
+
+    Deliberately NOT a pass/fail gate. Measured across the existing compats the
+    count runs 0, 0, 0, 4 and 81 -- and the 81 are Tier One's rifles inheriting
+    from RHS, which an attachments-only compat has no reason to dump. Correct
+    there, a real warning for anyone covering that mod's weapons. A human reads it.
+    """
+    found = _unclassified(config)
+
+    # Only backpacks are arsenal items under CfgVehicles, so soldier units and
+    # vehicles landing here is right. Counted, not listed -- crying wolf about 330
+    # correctly-excluded units would make the whole report ignorable.
+    #
+    # Except when the terminal looks like a bag. That is the one CfgVehicles case
+    # that IS a miss, and quieting it wholesale would have hidden VSM's 44 invisible
+    # backpacks in with its 330 units -- checked by re-running this with the
+    # VANILLA_* tables emptied.
+    def looks_like_a_bag(terminal: str) -> bool:
+        return any(w in terminal for w in ("bag", "pack", "carryall", "bergen", "harness"))
+
+    gear = {
+        k: v for k, v in found.items()
+        if k[0] != "CfgVehicles" or looks_like_a_bag(k[1])
+    }
+    units = sum(
+        len(v) for k, v in found.items()
+        if k[0] == "CfgVehicles" and not looks_like_a_bag(k[1])
+    )
+
+    total = sum(len(v) for v in gear.values())
+    if not total:
+        print("No unclassified arsenal-looking classes.")
+    else:
+        print(
+            f"{total} class(es) have scope 2 and a display name but resolve to no "
+            f"arsenal kind,\nso they are silently absent from the arsenal:\n"
+        )
+        for (root, terminal), names in sorted(gear.items(), key=lambda kv: -len(kv[1])):
+            print(f"  {len(names):>4}  [{root}] inheritance ends at '{terminal}'")
+            for n in sorted(names)[:3]:
+                print(f"          {n}")
+            if len(names) > 3:
+                print(f"          ... and {len(names) - 3} more")
+        print(
+            "\nWhat the terminal tells you:\n"
+            "  a vanilla gear or bag base   the dump holds a body-less forward declaration;\n"
+            "                               modconfig's VANILLA_* tables should cover it -- if not,\n"
+            "                               add the base there\n"
+            "  another mod's class          the chain leaves the dump. Add that mod as a\n"
+            "                               resolve-only source: init_mod.py --requires <id>\n"
+            "  a class in your own dump     the mod is doing something unusual; look by hand"
+        )
+    if units:
+        print(
+            f"\n({units} CfgVehicles class(es) also resolve to no kind. Expected: only "
+            "backpacks\n are arsenal items there, so soldier units and vehicles belong in "
+            "this bucket.)"
+        )
+    return 0
+
+
 def coverage(config: Config, packs: list[str], as_csv: bool) -> int:
     """Show where every arsenal item ended up: behind which entry, or standalone.
 
@@ -360,6 +457,19 @@ def coverage(config: Config, packs: list[str], as_csv: bool) -> int:
         f"+ {total_standalone} standalone"
     )
 
+    # The reconciliation above only balances items the classifier FOUND. Anything it
+    # failed to classify never reaches arsenal_items() at all, so it cannot show up
+    # as missing -- it is simply absent, silently. Nudge toward the one report that
+    # looks for that, since --coverage is the step people actually run.
+    blind = sum(
+        len(v) for k, v in _unclassified(config).items() if k[0] != "CfgVehicles"
+    )
+    if blind:
+        print(
+            f"\nNote: {blind} class(es) look like arsenal items but resolve to no kind, "
+            "so they\nare not counted above at all. Run `report.py --unclassified`."
+        )
+
     # an item in neither bucket would mean collect() lost it
     missing = len(shown) - total_covered - total_standalone
     if missing:
@@ -377,6 +487,11 @@ def main() -> int:
         "--coverage", action="store_true", help="every weapon and the entry it sits behind"
     )
     parser.add_argument("--csv", action="store_true", help="with --coverage: class names only")
+    parser.add_argument(
+        "--unclassified",
+        action="store_true",
+        help="classes that look like arsenal items but resolve to no kind",
+    )
     parser.add_argument(
         "--families", action="store_true", help="propose bases: groupings"
     )
@@ -403,7 +518,9 @@ def main() -> int:
             handle = stack.enter_context(args.out.open("w", encoding="utf-8", newline="\n"))
             stack.enter_context(contextlib.redirect_stdout(handle))
 
-        if args.coverage:
+        if args.unclassified:
+            result = unclassified(config)
+        elif args.coverage:
             result = coverage(config, args.packs, args.csv)
         else:
             items = config.arsenal_items()
