@@ -98,11 +98,36 @@ def collect(config: Config, ov: dict) -> tuple[list[Model], list[str], set[str]]
     # there matches the stem rather than every composition of it.
     compose: dict = ov.get("compose") or {}
 
+    # Display-name mirror of class_prefixes, for mods that write the discriminator
+    # on the FRONT of the name rather than in a "(...)" marker. VSM names every
+    # vest "[VSM] <camo> <model> (<role>)", so one vest arrives under fifteen base
+    # names. Longest first: "Multicam Arid" has to beat "Multicam".
+    #
+    # `keep` is the constant tag that survives at the front of the base -- VSM
+    # prefixes everything with "[VSM] " and that is worth keeping in the arsenal,
+    # so the match is made after it and it is put back.
+    name_prefixes = sorted(
+        ((str(k), (str(a), str(v))) for k, (a, v) in (ov.get("name_prefixes") or {}).items()),
+        key=lambda kv: -len(kv[0]),
+    )
+    name_prefix_keep = str(ov.get("name_prefix_keep") or "")
+
     for item in config.arsenal_items():
         base, toks, parts = decompose_display_name(item.display_name, compose)
         values: dict[str, str] = {}
         extra: list[str] = []
         pack_override: str | None = None
+
+        # Cut a leading discriminator out of the base name. Runs BEFORE the `bases:`
+        # lookup so a rule there is written against the stem, not against every
+        # prefixed spelling of it.
+        if name_prefixes and base.startswith(name_prefix_keep):
+            rest = base[len(name_prefix_keep):]
+            for prefix, (axis, value) in name_prefixes:
+                if rest.startswith(prefix):
+                    values[axis] = value
+                    base = name_prefix_keep + rest[len(prefix):]
+                    break
 
         # The base table both renames a base and places it inside a family, by
         # supplying the option values that distinguish it there. Applied first so
@@ -209,6 +234,32 @@ def collect(config: Config, ov: dict) -> tuple[list[Model], list[str], set[str]]
 
     # emitted order stays (root, pack, label), so the #include lists are stable
     models.sort(key=lambda m: (m.config_root, m.pack, m.label))
+
+    # Entries are grouped by (config root, label) but the class name is built from
+    # pack and label alone, so two entries that differ ONLY by root collide. VSM's
+    # Peltor headset is both CfgWeapons headgear and CfgGlasses facewear under one
+    # display name -- correctly two arsenal rows, but one class name, which Arma
+    # rejects outright ("class defined multiple times").
+    #
+    # Renaming only the loser keeps every existing compat byte-identical: with no
+    # collision this loop does nothing. Sorted order above makes which one loses
+    # deterministic.
+    seen: dict[str, Model] = {}
+    for model in models:
+        if model.name not in seen:
+            seen[model.name] = model
+            continue
+        stem = f"{model.name}_{model.config_root.lower().removeprefix('cfg')}"
+        candidate, n = stem, 2
+        while candidate in seen:
+            candidate, n = f"{stem}{n}", n + 1
+        notes.append(
+            f"[{model.pack}] {model.label}: name clashes with the {seen[model.name].config_root} "
+            f"entry of the same name -- emitted as {candidate}"
+        )
+        model.name = candidate
+        seen[candidate] = model
+
     return models, notes, unknown
 
 

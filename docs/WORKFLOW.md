@@ -400,8 +400,18 @@ gear item reports no type at all. Instead, in order:
 
 1. root `CfgGlasses` → `goggles`
 2. root `CfgVehicles` with `isBackpack = 1` → `backpack` (the flag is what separates a wearable bag
-   from an ammo crate — both descend from `ReammoBox`)
+   from an ammo crate — both descend from `ReammoBox`). Failing that, a **vanilla bag base anywhere
+   in the ancestry** — `B_Carryall_Base`, `B_Kitbag_Base`, `B_AssaultPack_Base` and friends. A mod
+   may inherit `isBackpack` rather than restate it, and the vanilla class holding it is never in the
+   dump, so the chain walk cannot reach it: VSM's 44 backpacks were invisible until this fallback
+   existed, with no error to say so. A mod that sets the flag itself never reaches the fallback.
 3. `ItemInfo`'s **parent class** → `HeadgearItem` / `VestItem` / `UniformItem` / `NVGoggles`
+3a. failing that, a **vanilla gear base anywhere in the ancestry** — the `H_` / `V_` / `U_` prefixes
+   Arma uses for its own gear, plus the generic `Uniform_Base` / `Vest_Base` / `Vest_Camo_Base`.
+   Needed because a mod that writes `class H_HelmetB;` to reference the vanilla helmet leaves a
+   body-less stub in the dump, and `class ItemInfo : ItemInfo` then inherits from *that* rather than
+   from the vanilla class — so `HeadgearItem` is never reached. VSM lost 13 helmets and 99 uniforms
+   this way. Reached only when step 3 fails, so an item that already classifies cannot be changed
 4. otherwise the inheritance root — `rifle` / `pistol` / `launcher` — with a weapon's own
    `type = 2` (handgun) or `4096` (binocular) overriding it
 
@@ -461,6 +471,7 @@ neither is forced by the tooling.
 | `spans arsenal tabs ['headgear', 'vest']` | a model mixes two tabs | **blocks generation** — ACEAX groups within one tab; split the model in `bases:` |
 | `camo value 'X' has no CamoBase entry` | a camo value with no label or swatch anywhere | **blocks generation** — add it to `camo_values:` |
 | `N model(s) depend on weak-match ordering` | reachable in practice, but not provable from the config | warning only; treat those groupings as the riskier ones to edit |
+| `name clashes with the X entry of the same name` | one display name in two config roots — VSM's Peltor is both headgear and facewear | nothing; the second is emitted with a root suffix so Arma does not see one class twice |
 | `MISSING: N item(s)` in coverage | an item is in neither an entry nor the standalone list | a generator bug — report it |
 | `is a CfgVehicles class, mapped under CfgWeapons` | a model was emitted under the wrong root | a generator bug — report it |
 | `no arsenal items in _dump/` | the dump is empty, or `kinds:` excludes everything the mod has | run `dump_configs.py`; check `kinds:` against `report.py` |

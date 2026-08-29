@@ -99,6 +99,38 @@ Only the class name says which is which, so `platform` is derived with
 hands, so the arsenal narrows the axis to a single value and the extension hides options that cannot
 be changed. `platform` exists purely to keep the config unambiguous.
 
+## `name_prefixes:`
+
+For mods that write the discriminator on the **front of the display name** instead of in a marker.
+Gear mods do this constantly with camo:
+
+```
+[VSM] AOR1 LBT6094 (Gunner)
+[VSM] Multicam Black LBT6094 (Gunner)
+```
+
+One vest, fifteen base names — VSM has 89 vest bases for what is really 13 vests.
+[`class_prefixes:`](#class_prefixes) matches the *class* name and `compose:` matches suffixes;
+neither reaches this.
+
+```yaml
+name_prefix_keep: "[VSM] "        # constant tag preserved at the front; optional
+name_prefixes:
+  "Multicam Black ": [camo, MCB]
+  "Multicam ":       [camo, MC]
+  "AOR1 ":           [camo, AOR1]
+```
+
+The prefix is cut out of the base, its axis value recorded, and `name_prefix_keep` put back — so
+`[VSM] AOR1 LBT6094` becomes `[VSM] LBT6094` with `camo = AOR1`.
+
+**Matching is longest-first, and that is load-bearing**: `Multicam Black` has to beat `Multicam`, and
+`OGA Black` / `OGA OD` have to beat `OGA`. Keep the trailing space in the key so `M81 ` cannot match a
+longer word starting with `M81`.
+
+Applied *before* the [`bases:`](#bases) lookup, so a rule there is written against the stem rather
+than against every prefixed spelling of it.
+
 ## `class_prefixes:` and `class_suffixes:`
 
 When the display name does not carry the distinction, take it from the class name. Both tables map a

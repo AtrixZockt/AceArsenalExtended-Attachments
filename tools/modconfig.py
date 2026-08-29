@@ -105,6 +105,58 @@ VANILLA_ATTACHMENT_PREFIXES = {
     "bipod_": "bipod",
 }
 
+# Vanilla bag base classes, for the same reason as the prefixes above: the flag
+# that identifies a backpack lives outside the dump.
+#
+# `isBackpack = 1` is what separates a wearable bag from an ammo crate, and a gear
+# mod is free to inherit it rather than restate it. Military Gear Pack sets it on
+# every bag; VSM sets it on none, and inherits from B_Carryall_Base and friends --
+# vanilla classes that are never dumped, so the chain walk ends before reaching the
+# flag and all 44 of its backpacks resolve to no kind at all. Silently: an item with
+# no kind is simply not an arsenal item.
+#
+# Checked against the whole chain rather than only the terminal parent, because a
+# mod may put its own base class in between.
+# Vanilla wearable base classes, by the tab they belong to. Third instance of the
+# same problem as the two tables around this one: what decides the kind lives on a
+# vanilla class the dump cannot see.
+#
+# Here it is worse than "not dumped" -- the class IS in the dump, as an empty
+# forward declaration. A mod writes `class H_HelmetB;` to reference the vanilla
+# helmet, and the dump faithfully records a class with no body. The ancestry walk
+# then stops there instead of running out, and
+#
+#     class VSM_base_fast_helmet : H_HelmetB { class ItemInfo : ItemInfo {...} }
+#
+# means "inherit my class-parent's ItemInfo" -- from the stub. So HeadgearItem is
+# never reached. VSM loses 13 helmets and 99 uniforms that way, with no warning:
+# an item with no kind is simply not an arsenal item.
+#
+# The prefixes are Arma's own convention for CfgWeapons gear; the bare names are
+# the generic bases everything else descends from.
+VANILLA_GEAR_PREFIXES = {"h_": "headgear", "v_": "vest", "u_": "uniform"}
+VANILLA_GEAR_BASES = {
+    "headgearitem": "headgear",
+    "vestitem": "vest",
+    "uniformitem": "uniform",
+    "uniform_base": "uniform",
+    "vest_base": "vest",
+    "vest_camo_base": "vest",
+    "vest_nochemprot_base": "vest",
+}
+
+VANILLA_BACKPACK_BASES = {
+    "bag_base",
+    "b_assaultpack_base",
+    "b_carryall_base",
+    "b_fieldpack_base",
+    "b_kitbag_base",
+    "b_tacticalpack_base",
+    "b_bergen_base",
+    "b_viperharness_base",
+    "b_legstrapbag_base_f",
+}
+
 
 @dataclass
 class Item:
@@ -295,9 +347,19 @@ class Config:
         if root == "CfgVehicles":
             # `isBackpack` is the canonical flag, and the only thing separating a
             # wearable bag from an ammo crate -- both descend from ReammoBox.
-            return "backpack" if _as_int(self.resolve(root, name, "isBackpack")) == 1 else ""
+            if _as_int(self.resolve(root, name, "isBackpack")) == 1:
+                return "backpack"
+            # Not set anywhere in the dump. It may still be a bag that inherits the
+            # flag from a vanilla base -- see VANILLA_BACKPACK_BASES.
+            return "backpack" if self._inherits_vanilla_bag(root, name) else ""
 
         kind = self._iteminfo_kind(root, name)
+        if kind:
+            return kind
+
+        # ItemInfo could not settle it. Before falling through to the weapon roots,
+        # try the ancestry for a vanilla gear base -- see _vanilla_gear_kind.
+        kind = self._vanilla_gear_kind(root, name)
         if kind:
             return kind
 
@@ -362,6 +424,44 @@ class Config:
                 if ancestor.startswith(prefix):
                     return kind
         return ""
+
+    def _vanilla_gear_kind(self, root: str, name: str) -> str:
+        """Kind from a vanilla gear base anywhere in the ancestry.
+
+        Only reached when ItemInfo has already failed, so an item that classifies
+        properly can never be reclassified by this -- which is what makes it safe to
+        add to compats that already work.
+
+        CfgWeapons only: CfgGlasses and CfgVehicles are settled earlier by root, and
+        letting a `v_`/`u_`/`h_` prefix loose on the weapon roots would misfile
+        anything that happened to start with one.
+        """
+        if root != "CfgWeapons":
+            return ""
+        for ancestor in self.chain(root, name) + [self.root_parent(root, name)]:
+            kind = VANILLA_GEAR_BASES.get(ancestor)
+            if kind:
+                return kind
+            for prefix, kind in VANILLA_GEAR_PREFIXES.items():
+                if ancestor.startswith(prefix):
+                    return kind
+        return ""
+
+    def _inherits_vanilla_bag(self, root: str, name: str) -> bool:
+        """Whether a vanilla backpack base sits anywhere in the ancestry.
+
+        Only consulted when `isBackpack` is absent from the whole chain, so a mod
+        that sets the flag itself never reaches here and cannot be reclassified by
+        it. That is what keeps this safe for compats that already work.
+
+        The whole chain is scanned rather than just `root_parent`, for the same
+        reason as _vanilla_attachment_kind: a mod may insert its own base class
+        between its items and the vanilla bag.
+        """
+        for ancestor in self.chain(root, name) + [self.root_parent(root, name)]:
+            if ancestor in VANILLA_BACKPACK_BASES:
+                return True
+        return False
 
     def _effective_scope(self, root: str, name: str) -> int:
         """`scope`, supplying vanilla's value where the dump cannot reach it.
