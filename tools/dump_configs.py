@@ -62,29 +62,41 @@ def main() -> int:
     missing: list[str] = []
 
     for source in mod.sources:
-        addons = source.path / "addons"
-        if not addons.is_dir():
-            raise SystemExit(f"no addons directory under {source.path}")
+        if not any(folder.is_dir() for folder in source.addon_paths):
+            raise SystemExit(
+                f"no addon directory under {source.path} "
+                f"(looked in {', '.join(source.addon_dirs)})"
+            )
 
         note = "  (resolve-only)" if source.resolve_only else ""
         print(f"{source.name}{note}")
 
-        for pbo_stem, pack in sorted(source.packs.items()):
-            pbo = addons / f"{pbo_stem}.pbo"
-            if not pbo.is_file():
+        for spec, pack in sorted(source.packs.items()):
+            pbo_stem, member = modinfo.pbo_member(spec)
+            pbo = source.find_pbo(pbo_stem)
+            if pbo is None:
                 missing.append(f"{source.name}/{pbo_stem}")
                 continue
 
             out_json = modinfo.DUMP / f"{pack}.json"
             out_xml = modinfo.DUMP / f"{pack}.stringtable.xml"
-            if out_json.is_file() and out_xml.is_file() and not args.force:
+            # a sub-config pack never produces a stringtable, so requiring one
+            # here would re-dump it on every run
+            fresh = out_json.is_file() and (
+                out_xml.is_file() or member != "config.bin"
+            )
+            if fresh and not args.force:
                 print(f"  {pack:<16} up to date")
                 continue
 
             out_bin = modinfo.DUMP / f"{pack}.bin"
-            print(f"  {pack:<16} <- {pbo.name}")
-            dump_stringtable(pbo, out_xml)
-            run(["hemtt", "utils", "pbo", "extract", str(pbo), "config.bin", str(out_bin)])
+            label = pbo.name if member == "config.bin" else f"{pbo.name}::{member}"
+            print(f"  {pack:<16} <- {label}")
+            # a sub-config never carries a stringtable of its own; the pbo's (if
+            # any) belongs to whichever pack took its root config
+            if member == "config.bin":
+                dump_stringtable(pbo, out_xml)
+            run(["hemtt", "utils", "pbo", "extract", str(pbo), member, str(out_bin)])
             run(
                 [
                     "hemtt",

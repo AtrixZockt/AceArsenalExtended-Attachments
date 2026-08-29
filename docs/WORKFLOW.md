@@ -366,10 +366,66 @@ Players do not need the add-on installed. `XtdGearInfos` entries for absent clas
 `fnc_getModelOptions` filters option values down to the items actually in the arsenal, so the extra
 camo simply does not appear.
 
+## 3b-ii. Covering the base game
+
+Arma 3 itself can be a source, and it differs from every Workshop mod in three ways. All three are
+handled in `mod.yml`; nothing downstream needs to know.
+
+**It has no Workshop id.** Point `path:` at the install and list the DLC directories, because the
+content is spread over `Addons/` plus one folder per DLC rather than a single `addons/`. A pack stem
+is looked up in each directory in turn.
+
+```yaml
+sources:
+  - name: "Arma 3"
+    path: 'C:\Program Files (x86)\Steam\steamapps\common\Arma 3'
+    addon_dirs: [Addons, Expansion/addons, Mark/addons, Enoch/addons, ...]
+```
+
+`addon_dirs:` defaults to `[addons]`, so every existing `mod.yml` means what it always did.
+
+Decide deliberately whether to include the CDLC folders (`GM`, `WS`, `EF`, `RF`). They are separate
+paid mods, and a player who does not own one should not meet its items in a dropdown.
+
+**One PBO holds many configs.** This is the trap. A Workshop mod ships a single `config.bin` at the
+root of each PBO; the base game ships one per sub-addon. `weapons_f.pbo` holds 29, and its root
+config contains only `CfgPatches` and forward declarations — every optic is in `acc\config.bin`.
+
+Dumping just the root member across all 482 vanilla and DLC PBOs finds **30 attachments and zero
+weapons**, with `optic_Aco` and `acc_flashlight` simply absent, and reports no error of any kind.
+The real figure is **100**. So a `packs:` key may name a config inside a PBO:
+
+```yaml
+packs:
+  weapons_f: base                 # the root config.bin, as usual
+  weapons_f/acc: acc              # acc\config.bin inside the same pbo
+  weapons_f_enoch/Pistols/ESD_01: enoch_esd
+```
+
+Each member becomes its own pack, which needs no merge logic: `Config.load` already resolves
+inheritance across packs, since that is how a weapon whose parent lives in another PBO resolves.
+
+To find the members of a PBO:
+
+```
+hemtt utils pbo inspect <pbo> | grep -i config.bin
+```
+
+**Display names live elsewhere.** Vanilla keeps its strings in `language_f*.pbo` rather than beside
+the classes, and the loader only reads a pack's stringtable when that pack also has a config dump —
+so the language PBOs have to be listed in `packs:` as well. They carry a `config.bin` of their own,
+so they dump normally. Skip them and every display name is a raw `$STR_A3_cfgWeapons_optic_Aco0`
+and nothing groups at all.
+
+`init_mod.py` does not cover this shape: it takes a Workshop id and reads one flat `addons/`. Write
+`mod.yml` by hand, then `dump_configs.py` onwards behaves exactly as for any other mod. Check your
+`packs:` list against `report.py --unclassified` before trusting any count — a pack that was never
+dumped is invisible to every other diagnostic.
+
 ## 3c. Gear compats
 
 A compat can cover uniforms, vests, headgear, backpacks and facewear as well as — or instead of —
-weapons. This repo is the gear-only case: Military Gear Pack ships 511 items and not one weapon.
+weapons. Gear-only is a normal shape: Military Gear Pack ships 511 items and not one weapon.
 
 ### `kinds:` and the three config roots
 

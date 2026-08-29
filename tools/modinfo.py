@@ -40,6 +40,25 @@ KIND_ALIASES = {
 }
 
 
+def pbo_member(spec: str) -> tuple[str, str]:
+    """Split a `packs:` key into a pbo stem and the config inside it.
+
+    A plain stem means the config.bin at the pbo root, which is the only one every
+    Workshop mod has. The base game instead ships one config.bin per sub-addon --
+    weapons_f.pbo has 29 of them, and every optic is in acc\\config.bin while the
+    root config holds only CfgPatches and forward declarations. A key may
+    therefore name the member: `weapons_f/acc` or `weapons_f/Rifles/MX`.
+
+    Each member becomes its own pack, which needs no merging: Config.load already
+    resolves inheritance across packs, since that is how a weapon whose parent
+    lives in another pbo resolves today.
+    """
+    stem, _, inner = spec.partition("/")
+    if not inner:
+        return stem, "config.bin"
+    return stem, inner.replace("/", "\\") + "\\config.bin"
+
+
 @dataclass(frozen=True)
 class Source:
     """One mod whose PBOs get dumped.
@@ -48,14 +67,31 @@ class Source:
     resolve, and is never searched for weapons -- needed when the mod you are
     patching extends another one. BWA3 Add's weapons inherit from BWMod's, so
     without BWMod dumped alongside, none of them resolve to a weapon at all.
+
+    `addon_dirs` is where the PBOs live relative to `path`. Every Workshop mod
+    keeps them in a single `addons/`, which is the default; the base game does
+    not, splitting its content over `Addons/` plus one directory per DLC. A stem
+    is looked up in each listed directory in turn.
     """
 
     name: str
     workshop_id: str
     path: Path
-    packs: dict[str, str]  # pbo stem -> short pack name
+    packs: dict[str, str]  # pbo stem (or stem/sub-config) -> short pack name
     base_packs: tuple[str, ...]  # short names contributing no weapons of their own
     resolve_only: bool = False
+    addon_dirs: tuple[str, ...] = ("addons",)
+
+    @property
+    def addon_paths(self) -> tuple[Path, ...]:
+        return tuple(self.path / d for d in self.addon_dirs)
+
+    def find_pbo(self, stem: str) -> Path | None:
+        for folder in self.addon_paths:
+            pbo = folder / f"{stem}.pbo"
+            if pbo.is_file():
+                return pbo
+        return None
 
 
 @dataclass(frozen=True)
@@ -158,6 +194,7 @@ def load() -> ModInfo:
                 packs=packs,
                 base_packs=tuple(entry.get("base_packs") or ()),
                 resolve_only=bool(entry.get("resolve_only")),
+                addon_dirs=tuple(entry.get("addon_dirs") or ("addons",)),
             )
         )
 

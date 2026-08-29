@@ -30,6 +30,7 @@ import re
 import subprocess
 import sys
 import tempfile
+from collections.abc import Sequence
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -47,11 +48,26 @@ MOD_YML = TOOLS / "mod.yml"
 SCAN_KINDS = modinfo.ALL_KINDS
 
 
-def dump_everything(addons: Path, into: Path) -> list[str]:
+def all_pbos(folders: Sequence[Path]) -> dict[str, Path]:
+    """pbo stem -> file, across every addon directory of one source.
+
+    Deduplicated by stem because that is what a pack name is: two PBOs with the
+    same stem could not be told apart in _dump/ anyway. The first directory
+    listed wins.
+    """
+    found: dict[str, Path] = {}
+    for folder in folders:
+        if not folder.is_dir():
+            continue
+        for pbo in sorted(folder.glob("*.pbo")):
+            found.setdefault(pbo.stem, pbo)
+    return found
+
+
+def dump_everything(folders: Sequence[Path], into: Path) -> list[str]:
     """Derapify every pbo's config.bin (and stringtable) into `into`, dump-style."""
     stems = []
-    for pbo in sorted(addons.glob("*.pbo")):
-        stem = pbo.stem
+    for stem, pbo in sorted(all_pbos(folders).items()):
         raw = into / f"{stem}.bin"
         got = subprocess.run(
             ["hemtt", "utils", "pbo", "extract", str(pbo), "config.bin", str(raw)],
@@ -206,7 +222,7 @@ def scan(ids: list[str], tmp: Path) -> tuple[Config, dict[str, Path], list[str]]
         items[item_id] = item
         name = steam.read_mod_name(item)
         print(f"{name}  ({len(list(addons.glob('*.pbo')))} pbos) -- derapifying")
-        stems += dump_everything(addons, tmp)
+        stems += dump_everything([addons], tmp)
     return Config.load(tmp, base_packs=(), kinds=SCAN_KINDS), items, stems
 
 
@@ -334,7 +350,7 @@ def main() -> int:
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmp = Path(tmpdir)
-        stems = dump_everything(addons, tmp)
+        stems = dump_everything([addons], tmp)
         required: dict[str, Path] = {}
         for req in args.requires:
             req_item = steam.find_workshop_item(req)
@@ -344,7 +360,7 @@ def main() -> int:
             required[req] = req_item
             # keep their stems: find_base_packs searches this list for the packs
             # our weapons actually lean on
-            stems += dump_everything(req_item / "addons", tmp)
+            stems += dump_everything([req_item / "addons"], tmp)
         config = Config.load(tmp, base_packs=(), kinds=SCAN_KINDS)
 
         # packs from a --requires mod exist only so this one resolves; their own
