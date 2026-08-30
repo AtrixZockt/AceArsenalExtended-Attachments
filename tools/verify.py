@@ -21,6 +21,13 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+# These scripts print mod-authored display names, and Windows consoles default to
+# a legacy codepage that cannot encode them -- RHS writes some Soviet loads in
+# Cyrillic ("7Т3М"), which crashed `report.py --coverage` outright. Reconfigure
+# stdout rather than stripping the names: the point of the report is to show what
+# the mod actually calls things.
+sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
 import modinfo  # noqa: E402
 from modconfig import Config, unproven_variants  # noqa: E402
 
