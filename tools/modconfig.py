@@ -185,6 +185,44 @@ VANILLA_BACKPACK_BASES = {
     "b_legstrapbag_base_f",
 }
 
+# Vanilla ammunition magazines that mods inherit from. Fourth instance of the same
+# problem as the three tables above: what decides the item lives on a vanilla class
+# the dump cannot see.
+#
+# Both facts a magazine is judged on come from there. BWmod writes
+#
+#     class BWA3_20Rnd_762x51_G28 : 20Rnd_762x51_Mag { displayName = ...; };
+#
+# and nothing else -- vanilla's parent carries `scope = 2` and CA_Magazine carries
+# `type = 256`. Neither resolves offline, so all six of the G28's magazines look
+# like they have no scope and no type, and drop out silently.
+#
+# Dumping vanilla alongside is NOT the fix here, however tempting. It resolves the
+# magazines and destroys the weapons: BWmod's rifles inherit straight from
+# Rifle_Base_F, so today the chain stops there and WEAPON_ROOTS matches "rifle",
+# while with vanilla present it runs on to RifleCore and Default and matches
+# nothing. Measured on BWmod: magazines 35 -> 41, primary 77 -> 0.
+#
+# Seeded with the CfgMagazines classes that descend directly from CA_Magazine with
+# scope 2 and a carryable type, less the throwables (which are the grenade tab, not
+# this one) and Laserbatteries (a misc item). Incomplete by nature, like the tables
+# above it -- `report.py --unclassified` is how a missing entry shows itself.
+VANILLA_MAGAZINE_BASES = {
+    "ca_magazine",
+    "10rnd_762x51_mag",
+    "20rnd_762x51_mag",
+    "30rnd_556x45_stanag",
+    "30rnd_65x39_caseless_mag",
+    "30rnd_9x21_mag",
+    "100rnd_65x39_caseless_mag",
+    "150rnd_762x51_box",
+    "200rnd_65x39_cased_box",
+    "11rnd_45acp_mag",
+    "5rnd_127x108_mag",
+    "7rnd_408_mag",
+    "1rnd_he_grenade_shell",
+}
+
 
 @dataclass
 class Item:
@@ -497,7 +535,28 @@ class Config:
             return "magazine"
         if _as_expr_int(self.resolve(root, name, "type")) in MAGAZINE_TYPES:
             return "magazine"
+        # `type` said nothing, which for a magazine usually means the chain left the
+        # dump before reaching it. Only then is the ancestry consulted -- so a
+        # magazine that states its own type is never second-guessed by this.
+        if self.resolve(root, name, "type") is None and self._inherits_vanilla_magazine(
+            root, name
+        ):
+            return "magazine"
         return ""
+
+    def _inherits_vanilla_magazine(self, root: str, name: str) -> bool:
+        """Whether a vanilla ammunition magazine sits anywhere in the ancestry.
+
+        Whole chain plus the terminal's parent, like _vanilla_attachment_kind: a mod
+        may put its own base class in between, and the vanilla class is usually the
+        one the chain runs out on rather than one it contains.
+        """
+        if root != "CfgMagazines":
+            return False
+        for ancestor in self.chain(root, name) + [self.root_parent(root, name)]:
+            if ancestor in VANILLA_MAGAZINE_BASES:
+                return True
+        return False
 
     def _vanilla_attachment_kind(self, root: str, name: str) -> str:
         """Kind from a vanilla attachment class anywhere in the ancestry.
@@ -575,11 +634,18 @@ class Config:
         attachment class, means 2. That is filling in a value the dump is missing,
         not guessing -- every vanilla attachment is scope 2. A class that really is
         hidden says so explicitly with `scope = 1`, which is honoured as normal.
+
+        Magazines inherit scope the same way and get the same treatment. BWmod's
+        G28 magazines derive from vanilla 20Rnd_762x51_Mag and declare no scope of
+        their own; the ten-round versions, which BWmod really does hide, say
+        `scope = 1` outright and are still excluded by the check above.
         """
         raw = self.resolve(root, name, "scope")
         if raw is not None:
             return _as_int(raw, 0)
         if self._vanilla_attachment_kind(root, name):
+            return 2
+        if self._inherits_vanilla_magazine(root, name):
             return 2
         return 0
 
