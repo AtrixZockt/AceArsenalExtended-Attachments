@@ -54,9 +54,36 @@ KIND_ROOT = {
     "pointer": "CfgWeapons",
     "muzzle": "CfgWeapons",
     "bipod": "CfgWeapons",
+    # Also a right-panel kind, and also aceaxatt-only. Covers ACE's four
+    # ammunition tabs; grenades and explosives are separate tabs and are
+    # deliberately excluded -- see _magazine_kind.
+    "magazine": "CfgMagazines",
 }
 
-CONFIG_ROOTS = ("CfgWeapons", "CfgVehicles", "CfgGlasses")
+CONFIG_ROOTS = ("CfgWeapons", "CfgVehicles", "CfgGlasses", "CfgMagazines")
+
+# Roots that cannot be classified without another root loaded alongside them.
+# A magazine is told from a grenade by whether CfgWeapons >> Throw reaches it, so
+# a magazines-only compat still has to read CfgWeapons -- otherwise every grenade
+# in the mod silently classifies as a magazine.
+ROOT_DEPENDENCIES = {"CfgMagazines": ("CfgWeapons",)}
+
+# CfgMagazines >> type values ACE accepts into the arsenal's magazine tabs, from
+# ace_arsenal_fnc_scanConfig:
+#
+#   TYPE_MAGAZINE_HANDGUN_AND_GL     16
+#   TYPE_MAGAZINE_PRIMARY_AND_THROW  256
+#   TYPE_MAGAZINE_SECONDARY_AND_PUT  512
+#   TYPE_MAGAZINE_MISSILE            768
+#                                   1536   hardcoded in ACE's list (Titan and kin)
+#
+# The filter matters more here than anywhere else in this file. `scope = 2` alone
+# admits 613 of vanilla's 690 magazines, nearly all of it vehicle ammunition --
+# 120mm tank rounds, minigun belts, ECM pods -- carrying wildly duplicated display
+# names (23 classes all called "7.62 mm Minigun Belt"). Those would inflate every
+# count and trip the generator's duplicate-combination refusal. With this table
+# vanilla reports 185, which is what the arsenal actually shows.
+MAGAZINE_TYPES = frozenset({16, 256, 512, 768, 1536})
 
 # Every CfgWeapons class bottoms out at one of the vanilla A3 base classes.
 # "rifle"/"pistol" are the actual weapons; "itemcore" and the "optic_*" family are
@@ -89,6 +116,7 @@ ITEMINFO_KINDS = {
     "inventorymuzzleitem_base_f": "muzzle",
     "inventoryunderitem_base_f": "bipod",
 }
+
 
 # Last resort for an attachment that inherits from a VANILLA attachment
 # (`hlc_optic_kobra : optic_aco_grn`). Its nearest ItemInfo then lives on a class
@@ -222,6 +250,7 @@ class Config:
         self.base_packs: set[str] = set()  # packs that only contribute base classes
         self.kinds: tuple[str, ...] = ()  # arsenal tabs this compat covers
         self.roots: tuple[str, ...] = CONFIG_ROOTS  # roots actually read
+        self._throw_put_cache: set[str] | None = None
 
     # ---------- loading ----------
 
@@ -241,7 +270,10 @@ class Config:
                 kinds = mod.kinds
         self.base_packs = set(base_packs)
         self.kinds = tuple(kinds)
-        self.roots = tuple(dict.fromkeys(KIND_ROOT[k] for k in self.kinds))
+        roots = [KIND_ROOT[k] for k in self.kinds]
+        for root in list(roots):
+            roots.extend(ROOT_DEPENDENCIES.get(root, ()))
+        self.roots = tuple(dict.fromkeys(roots))
 
         # base packs first, so weapon packs win on any duplicate base class
         paths = sorted(dump.glob("*.json"), key=lambda p: (p.stem not in self.base_packs, p.stem))
@@ -344,6 +376,8 @@ class Config:
         """
         if root == "CfgGlasses":
             return "goggles"
+        if root == "CfgMagazines":
+            return self._magazine_kind(root, name)
         if root == "CfgVehicles":
             # `isBackpack` is the canonical flag, and the only thing separating a
             # wearable bag from an ammo crate -- both descend from ReammoBox.
@@ -402,6 +436,67 @@ class Config:
                 return kind
             if parent.lower() != "iteminfo":
                 return ""
+        return ""
+
+    def _throw_put_magazines(self) -> set[str]:
+        """Every magazine reachable from the virtual weapons Throw and Put.
+
+        These are the arsenal's grenade and explosive tabs, which this toolchain
+        does not cover: @aceaxatt collapses the four ammunition tabs only, so
+        grouping data for a smoke grenade would sit inert while still inflating
+        every count. Excluding them here is what keeps `magazine` meaning what
+        the arsenal means by it.
+
+        This is how ACE itself tells them apart -- ace_arsenal_fnc_scanConfig
+        reads `Throw >> <muzzle> >> magazines[]` and the same for `Put`. Checked
+        against vanilla it separates them exactly: 19 throwables and 13
+        explosives, with no rifle magazine caught and no grenade missed.
+
+        Every sub-class is scanned rather than only those named in `muzzles[]`.
+        Arma replaces rather than merges an inherited array, so a DLC that adds a
+        mine can leave `muzzles[]` naming fewer muzzles than the class actually
+        has -- and a muzzle whose magazines are already listed is harmless to
+        read twice.
+        """
+        if self._throw_put_cache is None:
+            found: set[str] = set()
+            weapons = self.classes.get("CfgWeapons", {})
+            for holder in ("throw", "put"):
+                body = weapons.get(holder)
+                if not isinstance(body, dict):
+                    continue
+                pools = [body] + [v for v in body.values() if isinstance(v, dict)]
+                for pool in pools:
+                    for magazine in pool.get("magazines") or []:
+                        if isinstance(magazine, str):
+                            found.add(magazine.lower())
+            self._throw_put_cache = found
+        return self._throw_put_cache
+
+    def _magazine_kind(self, root: str, name: str) -> str:
+        """Whether a magazine is one the arsenal's ammunition tabs would list.
+
+        Mirrors ace_arsenal_fnc_scanConfig, which is the only authority on what
+        those tabs hold, and is worth mirroring exactly rather than approximating
+        -- see MAGAZINE_TYPES for what `scope = 2` alone would let through.
+
+        Order follows ACE's own switch: misc-item magazines (spare barrels,
+        intel, photographs) go to the Misc tab, grenades and explosives to their
+        own tabs, and only what is left is tested against the type allowlist.
+        `ace_arsenal_hide = -1` is ACE's override for a magazine that should be
+        listed whatever its type says.
+        """
+        if name in self._throw_put_magazines():
+            return ""
+        # ACE's isMiscItem, magazine branch: ACE_asItem > 0 or ACE_isUnique
+        if _as_expr_int(self.resolve(root, name, "ACE_asItem")) > 0:
+            return ""
+        if _as_expr_int(self.resolve(root, name, "ACE_isUnique")) == 1:
+            return ""
+        if _as_expr_int(self.resolve(root, name, "ace_arsenal_hide")) == -1:
+            return "magazine"
+        if _as_expr_int(self.resolve(root, name, "type")) in MAGAZINE_TYPES:
+            return "magazine"
         return ""
 
     def _vanilla_attachment_kind(self, root: str, name: str) -> str:
@@ -817,6 +912,33 @@ def _as_int(value, default=0):
         return int(value)
     except (TypeError, ValueError):
         return default
+
+
+def _as_expr_int(value, default=0):
+    """_as_int, but tolerating the arithmetic a rapified config can carry.
+
+    A config.bin stores a number either evaluated or as the expression that was
+    written, and BI writes magazine types as products: SatchelCharge_Remote_Mag
+    derapifies to `type = "2*\t\t256"`, not 512. Plain int() gives up on that and
+    the magazine silently classifies as nothing.
+
+    Deliberately limited to digits, * and +, evaluated only once the string has
+    been proven to contain nothing else -- config values are untrusted input.
+    """
+    result = _as_int(value, None)
+    if result is not None:
+        return result
+    if isinstance(value, str):
+        packed = re.sub(r"\s+", "", value)
+        if packed and re.fullmatch(r"\d+(?:[*+]\d+)*", packed):
+            total = 0
+            for term in packed.split("+"):
+                product = 1
+                for factor in term.split("*"):
+                    product *= int(factor)
+                total += product
+            return total
+    return default
 
 
 def _norm_path(value) -> str:

@@ -18,14 +18,15 @@ params ["_display"];
 
 private _model = "";
 private _class = "";
+private _root = call FUNC(currentPanelRoot);
 
 // GVAR(collapsed) is false when the collapse did not run -- the addon is switched
-// off, the slot is not one it handles, or fnc_collapsePanel bailed. Offering
+// off, the panel is not one it handles, or fnc_collapsePanel bailed. Offering
 // dropdowns over a list that still holds every duplicate would be worse than
 // offering none, so the panel stays down.
 if (missionNamespace getVariable [QGVAR(enabled), true]
     && {GVAR(collapsed)}
-    && {(call FUNC(currentSlot)) >= 0}) then {
+    && {_root != ""}) then {
 
     private _ctrl = _display displayCtrl IDC_rightTabContent;
     private _curSel = lbCurSel _ctrl;
@@ -35,10 +36,16 @@ if (missionNamespace getVariable [QGVAR(enabled), true]
         _class = _ctrl lbData _curSel;
 
         if (_class != "") then {
-            _model = ["CfgWeapons", _class] call GEARINFO(getConfigModel);
+            _model = [_root, _class] call GEARINFO(getConfigModel);
         };
     };
 };
+
+// Every function below reads the root back from here rather than re-deriving it.
+// Re-deriving would be wrong as well as wasteful: changeCurrentConfig runs from a
+// button click, by which point the panel could in principle have moved on, and the
+// model it is working with belongs to whichever root produced it.
+GVAR(currentRoot) = _root;
 
 if (_model != GVAR(currentModel)) then {
     [_display, _model] call FUNC(generateOptionsUI);
@@ -49,6 +56,6 @@ if (_model == "") exitWith {
     GVAR(currentModelOptions) = [];
 };
 
-GVAR(currentModelOptions) = ["CfgWeapons", _class, _model] call GEARINFO(getConfigOptions);
+GVAR(currentModelOptions) = [_root, _class, _model] call GEARINFO(getConfigOptions);
 
 [_display] call FUNC(refreshCheckboxes);

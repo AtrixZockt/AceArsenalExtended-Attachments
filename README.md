@@ -1,17 +1,20 @@
 # ACEAX Attachments
 
 An extension for [ACE3 Arsenal Extended](https://github.com/jetelain/AceArsenalExtended) (ACEAX)
-that adds **weapon-attachment merging** to the arsenal's right panel.
+that adds merging to the arsenal's **right panel** — **weapon attachments** and **magazines**.
 
 ACEAX groups similar items behind dropdowns, but only for its ten left-panel tabs — weapons,
-uniforms, vests, headgear, backpacks, goggles. Attachments live in the *right* panel and are
-explicitly skipped: `IDX_VIRT_ATTACHMENTS` sits in ACEAX's `unsupported` array, so every optic,
-laser, muzzle device and bipod variant gets its own row.
+uniforms, vests, headgear, backpacks, goggles. The right panel is explicitly skipped:
+`IDX_VIRT_ATTACHMENTS` sits in ACEAX's `unsupported` array, so every optic, laser, muzzle device and
+bipod variant gets its own row, and so does every magazine.
 
 That adds up fast, because attachments vary along more axes than gear does. One red dot shipped in
 three finishes, with and without a magnifier, on two mounts, is **twelve rows for one sight** —
 before you count the copies a mod cuts per weapon platform. Weapon mods routinely put several
 hundred attachments in the arsenal, and the right panel lists all of them, flat.
+
+Magazines are the same problem with a different shape: one calibre in tracer and non-tracer, in
+three round counts and four tracer colours, is a screenful of rows that differ by a word.
 
 This addon supplies the missing half of the machinery. It ships **no grouping data of its own**.
 
@@ -22,7 +25,7 @@ This addon supplies the missing half of the machinery. It ships **no grouping da
 ### It does nothing on its own
 
 Loading this addon by itself changes **nothing**. It is the mechanism; the data that says which
-attachments are variants of each other comes from a *compat* addon for whichever weapon mod you run.
+items are variants of each other comes from a *compat* addon for whichever weapon mod you run.
 Without one, the arsenal behaves exactly as it does with plain ACEAX.
 
 That is deliberate, and it cuts both ways: a compat can ship attachment data and stay perfectly
@@ -47,18 +50,21 @@ must load after it.
 No, and the design is what guarantees that rather than testing alone.
 
 - **It writes no ACE or ACEAX state.** Not `ace_arsenal_virtualItems`, not ACEAX's `meta` or
-  `unsupported` tables, not its option-panel variables. The left panel, magazines, containers and
-  every existing compat are untouched because nothing shared is modified.
+  `unsupported` tables, not its option-panel variables. The left panel, containers and every
+  existing compat are untouched because nothing shared is modified.
+- **It only touches panels it has data for.** Grenades, explosives, misc items and container
+  contents are not handled at all, and a panel with no grouping data behind it is left exactly as
+  ACE built it.
 - **It patches none of ACE's controls.** The selection handler is attached at runtime with
   `ctrlAddEventHandler`, which runs *alongside* ACE's own `onLBSelChanged` rather than replacing it —
   so equipping, the weight readout and `ace_arsenal_weaponItemChanged` all still happen, unchanged.
   The only thing this addon contributes to `ace_arsenal_display` is one new control of its own.
-- **Unmapped attachments are left alone.** Anything without grouping data keeps its own row.
-- **There is a kill switch.** CBA Settings → *ACE Arsenal Extended* → *Merge weapon attachments*.
+- **Unmapped items are left alone.** Anything without grouping data keeps its own row.
+- **There is a kill switch.** CBA Settings → *ACE Arsenal Extended* → *Merge attachments and magazines*.
   Turn it off and the arsenal is stock ACEAX again, no restart needed.
 
-Nothing about the attachments themselves changes — only how the arsenal lists them. Existing
-loadouts, missions and templates keep working.
+Nothing about the items themselves changes — only how the arsenal lists them. Existing loadouts,
+missions and templates keep working.
 
 ---
 

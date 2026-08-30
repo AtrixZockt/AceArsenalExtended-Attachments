@@ -14,12 +14,18 @@ Two separate things, and it matters that they stay separate:
 
 | | what it is | who needs it |
 |---|---|---|
-| **this addon** (`@aceaxatt`) | the runtime — teaches the arsenal's right panel to collapse | everyone who wants attachment merging |
-| **your compat** | config data saying which attachments are variants of which | anyone using the mod you patched |
+| **this addon** (`@aceaxatt`) | the runtime — teaches the arsenal's right panel to collapse | everyone who wants right-panel merging |
+| **your compat** | config data saying which items are variants of which | anyone using the mod you patched |
 
 Your compat does **not** depend on this addon. Its data is inert without it — nothing in ACEAX
-reads attachment `XtdGearInfos` — so players without the extension see the arsenal exactly as they
+reads right-panel `XtdGearInfos` — so players without the extension see the arsenal exactly as they
 do today, and nothing errors.
+
+Everything below is written for attachments, which is the common case. **Magazines work exactly the
+same way** and are covered by the same runtime: add `magazine` to `kinds:` instead of, or alongside,
+the attachment kinds. The one difference worth knowing is what counts as a magazine — see
+[WORKFLOW.md](WORKFLOW.md#kinds-and-the-four-config-roots). Grenades and explosives are not covered:
+they are separate arsenal tabs that this addon does not touch.
 
 That means your `CfgPatches` keeps only:
 

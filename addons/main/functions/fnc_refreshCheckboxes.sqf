@@ -19,10 +19,11 @@ params ["_display"];
 private _model = GVAR(currentModel);
 if (_model == "") exitWith {};
 
-private _modelDefinition = configFile >> "XtdGearModels" >> "CfgWeapons" >> _model;
+private _root = GVAR(currentRoot);
+private _modelDefinition = configFile >> "XtdGearModels" >> _root >> _model;
 private _allowedItems = GVAR(allowedItems) getOrDefault [_model, []];
 
-private _options = ["CfgWeapons", _model, _modelDefinition, "options", _allowedItems] call GEARINFO(getModelOptions);
+private _options = [_root, _model, _modelDefinition, "options", _allowedItems] call GEARINFO(getModelOptions);
 
 {
     private _optionIndex = _forEachIndex;
@@ -50,11 +51,11 @@ private _options = ["CfgWeapons", _model, _modelDefinition, "options", _allowedI
         // for this index may not exist.
         if (isNull _checkbox || {isNull _button}) then { continue };
 
-        private _exactMatch = !isNull (["CfgWeapons", _model, _previewOptions] call GEARINFO(findConfig));
+        private _exactMatch = !isNull ([_root, _model, _previewOptions] call GEARINFO(findConfig));
 
         private _enabled = if (!_alwaysSelectable) then { _exactMatch } else {
             if (_exactMatch) then { true } else {
-                !isNull (["CfgWeapons", _model, _optionIndex, _valueName] call GEARINFO(findConfigByValue))
+                !isNull ([_root, _model, _optionIndex, _valueName] call GEARINFO(findConfigByValue))
             };
         };
 

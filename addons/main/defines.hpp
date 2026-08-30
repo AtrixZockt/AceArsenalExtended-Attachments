@@ -32,14 +32,36 @@
 // so 0=muzzle, 1=pointer, 2=optic, 3=bipod. Keep this list in that order.
 #define ATTACHMENT_SLOT_IDCS IDC_buttonMuzzle, IDC_buttonItemAcc, IDC_buttonOptic, IDC_buttonBipod
 
+// ---- right panel buttons: the four ammunition tabs -----------------------
+//
+// All four list CfgMagazines classes, which is the only thing this addon needs
+// of them -- unlike the attachment list above, nothing indexes this one by
+// position, so the order carries no meaning and is free to change.
+#define IDC_buttonCurrentMag 3002   // magazines for the selected weapon
+#define IDC_buttonCurrentMag2 3004  // the secondary muzzle's, e.g. an underbarrel GL
+#define IDC_buttonMag 30
+#define IDC_buttonMagALL 32
+#define MAGAZINE_SLOT_IDCS IDC_buttonCurrentMag, IDC_buttonCurrentMag2, IDC_buttonMag, IDC_buttonMagALL
+
+// Deliberately NOT handled: IDC_buttonThrow (34) and IDC_buttonPut (36), the
+// grenade and explosive tabs. They are CfgMagazines too and would need only a
+// third list here, but the toolchain does not generate data for them -- see
+// modconfig._magazine_kind -- so listing them would collapse nothing while
+// making the addon claim a panel it does nothing with.
+
 // ---- ace_arsenal_currentItems indices ------------------------------------
 #define IDX_CURR_PRIMARY_WEAPON_ITEMS 18
 #define IDX_CURR_SECONDARY_WEAPON_ITEMS 19
 #define IDX_CURR_HANDGUN_WEAPON_ITEMS 20
 #define IDX_CURR_BINO_ITEMS 21
 
-// Same order as the IDX_CURR_*_ITEMS block above, which is what lets
-// fnc_currentSlot turn a left-panel IDC into an index by position.
+// Same order as the IDX_CURR_*_ITEMS block above, so a left-panel IDC turns into
+// an index into ace_arsenal_currentItems by position.
+//
+// Nothing reads this today. The collapse works off what ACE already put in the
+// listbox, so it never needs to ask which weapon is selected -- see the note at
+// the top of fnc_collapsePanel. Kept because it is the awkward half of ACE's
+// layout to rediscover, and left here rather than in a commit message.
 #define WEAPON_PANEL_IDCS IDC_buttonPrimaryWeapon, IDC_buttonSecondaryWeapon, IDC_buttonHandgun, IDC_buttonBinoculars
 
 // ---------------------------------------------------------------------------

@@ -5,13 +5,17 @@
  *
  * Runs a frame after ace_arsenal_rightPanelFilled, once ACE has finished sorting
  * the panel and restoring the selection. At that point the list holds exactly the
- * attachments valid for the selected weapon and slot -- ACE has already filtered by
- * compatibleItems -- so collapsing here needs no knowledge of the weapon at all.
+ * items valid for the selected weapon and tab -- ACE has already filtered by
+ * compatibleItems, or by compatible magazines -- so collapsing here needs no
+ * knowledge of the weapon at all.
  *
  * Collapsing the LIST rather than ace_arsenal_virtualItems is the whole design:
- * attachment compatibility is per weapon, so a representative chosen once and
- * globally might not fit the weapon currently selected, and the entire family would
- * vanish from the list. It also means no ACE or ACEAX global is ever written.
+ * compatibility is per weapon, so a representative chosen once and globally might
+ * not fit the weapon currently selected, and the entire family would vanish from
+ * the list. It also means no ACE or ACEAX global is ever written.
+ *
+ * Attachments and magazines differ only in which config root the rows come from,
+ * which fnc_currentPanelRoot answers.
  *
  * Arguments:
  * 0: Arsenal display <DISPLAY>
@@ -32,11 +36,11 @@ GVAR(collapsed) = false;
 private _debug = missionNamespace getVariable [QGVAR(debug), false];
 private _ctrl = _display displayCtrl IDC_rightTabContent;
 private _size = lbSize _ctrl;
-private _slot = call FUNC(currentSlot);
+private _root = call FUNC(currentPanelRoot);
 
 if (_debug) then {
-    diag_log format ["[aceaxatt] collapse: slot=%1 leftPanel=%2 rightPanel=%3 rows=%4 selected=%5 ctrlNull=%6 ctrlType=%7 enabled=%8",
-        _slot,
+    diag_log format ["[aceaxatt] collapse: root=%1 leftPanel=%2 rightPanel=%3 rows=%4 selected=%5 ctrlNull=%6 ctrlType=%7 enabled=%8",
+        _root,
         missionNamespace getVariable ["ace_arsenal_currentLeftPanel", "nil"],
         missionNamespace getVariable ["ace_arsenal_currentRightPanel", "nil"],
         _size, lbCurSel _ctrl, isNull _ctrl, ctrlType _ctrl,
@@ -44,16 +48,16 @@ if (_debug) then {
 };
 
 if !(missionNamespace getVariable [QGVAR(enabled), true]) exitWith {};
-if (_slot < 0) exitWith {};
+if (_root == "") exitWith {};
 if (_size < 2) exitWith { GVAR(collapsed) = true };
 
-// ACE has already restored the selection, so this is the equipped attachment.
-// Keeping its row is what stops the selection falling back to <empty> and looking
-// like the attachment came off.
+// ACE has already restored the selection, so this is the equipped attachment or
+// the highlighted magazine. Keeping its row is what stops the selection falling
+// back to <empty> and looking like the item came off.
 private _selected = lbCurSel _ctrl;
 
 // Bucket the rows by model. Rows with no data (ACE's "<empty>" entry) and rows
-// whose class has no XtdGearInfo are left alone -- an unmapped attachment keeps its
+// whose class has no XtdGearInfo are left alone -- an unmapped item keeps its
 // own row, exactly as it does without this addon.
 //
 // Written with nested ifs rather than `continue`: ACE only ever uses `continue`
@@ -65,17 +69,17 @@ for "_i" from 0 to (_size - 1) do {
     private _class = _ctrl lbData _i;
 
     if (_class != "") then {
-        private _model = ["CfgWeapons", _class] call GEARINFO(getConfigModel);
+        private _model = [_root, _class] call GEARINFO(getConfigModel);
         private _note = "";
 
         // An XtdGearInfo naming a model that was never defined is broken compat
         // data. Grouping on it would merge rows behind an option panel that cannot
         // be built, so those rows are left alone instead -- same treatment as an
-        // attachment with no XtdGearInfo at all.
+        // item with no XtdGearInfo at all.
         //
         // Our own generator cannot emit this, but the addon is published for other
         // people's compats and their data never passes through tools/verify.py.
-        if (_model != "" && {!isClass (configFile >> "XtdGearModels" >> "CfgWeapons" >> _model)}) then {
+        if (_model != "" && {!isClass (configFile >> "XtdGearModels" >> _root >> _model)}) then {
             _note = " -- NO XtdGearModels class, left ungrouped";
             _model = "";
         };

@@ -427,10 +427,10 @@ dumped is invisible to every other diagnostic.
 A compat can cover uniforms, vests, headgear, backpacks and facewear as well as — or instead of —
 weapons. Gear-only is a normal shape: Military Gear Pack ships 511 items and not one weapon.
 
-### `kinds:` and the three config roots
+### `kinds:` and the four config roots
 
-ACEAX drives **ten arsenal tabs** out of **three config roots** (its
-`addons/arsenal/XEH_preInit.sqf`):
+ACEAX drives **ten arsenal tabs** out of three config roots (its
+`addons/arsenal/XEH_preInit.sqf`), and `@aceaxatt` adds the right panel on top of that:
 
 | tab (`kind`) | config root |
 |---|---|
@@ -440,6 +440,7 @@ ACEAX drives **ten arsenal tabs** out of **three config roots** (its
 | `backpack` | `CfgVehicles` |
 | `goggles` | `CfgGlasses` |
 | `optic`, `pointer`, `muzzle`, `bipod` | `CfgWeapons` |
+| `magazine` | `CfgMagazines` |
 
 `kinds:` in `mod.yml` picks which of those the compat covers, and that decides which roots get
 dumped, grouped and emitted:
@@ -447,14 +448,28 @@ dumped, grouped and emitted:
 ```yaml
 kinds: [headgear, uniform, vest, backpack, goggles]   # or just: [gear]
 kinds: [optic, pointer, muzzle, bipod]                # or just: [attachment]
+kinds: [magazine]                                     # or just: [magazines]
 ```
 
 **Omitting `kinds:` means weapons only.** That is what every compat written before gear support
 meant, so the older repos keep working with these tools untouched.
 
-The four attachment kinds are the odd ones out: stock ACEAX ignores the right panel entirely, so
-they need the `@aceaxatt` extension to do anything in game. The data is inert without it rather
-than broken — see [ATTACHMENT_COMPAT.md](ATTACHMENT_COMPAT.md).
+The attachment and magazine kinds are the odd ones out: stock ACEAX ignores the right panel
+entirely, so they need the `@aceaxatt` extension to do anything in game. The data is inert without
+it rather than broken — see [ATTACHMENT_COMPAT.md](ATTACHMENT_COMPAT.md).
+
+`magazine` is one kind rather than four because ACE spreads magazines over four tabs — the current
+weapon's, the secondary muzzle's, compatible, and all — that all draw on the same `CfgMagazines`
+classes. **Grenades and explosives are not covered.** They are their own tabs, `@aceaxatt` does not
+touch them, and `modconfig._magazine_kind` excludes anything reachable from `CfgWeapons >> Throw` or
+`>> Put` so grouping data is never emitted for a smoke grenade that nothing would collapse.
+
+Magazines also need a filter the other roots do not, and it is worth knowing about before you
+disbelieve a count. `scope = 2` alone admits 613 of vanilla's 690 magazines — almost all of it
+vehicle ammunition with wildly duplicated display names, 23 classes alone called "7.62 mm Minigun
+Belt". `modconfig.MAGAZINE_TYPES` mirrors the `type` allowlist from
+`ace_arsenal_fnc_scanConfig`; with it, and with grenades and explosives removed, vanilla classifies
+174. If one of *your* magazines is missing, check its `type` against that table first.
 
 The generated config grows a block per root:
 

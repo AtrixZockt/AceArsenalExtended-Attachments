@@ -97,7 +97,7 @@ wrote tools/mod.yml
 
 - **`kinds:`.** Whatever was found goes into `mod.yml`. Narrow it with `--kinds`, which accepts tab
   names or the aliases `weapons` (primary/handgun/launcher), `gear` (headgear/uniform/vest/
-  backpack/goggles) and `attachment` (optic/pointer/muzzle/bipod):
+  backpack/goggles), `attachment` (optic/pointer/muzzle/bipod) and `magazines` (magazine):
 
   ```
   python tools/init_mod.py 1234567890 --kinds weapons          # skip the helmets

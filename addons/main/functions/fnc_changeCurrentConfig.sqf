@@ -1,13 +1,14 @@
 #include "..\script_component.hpp"
 #include "..\defines.hpp"
 /*
- * Swap the selected attachment for the variant the clicked value asks for.
+ * Swap the selected item for the variant the clicked value asks for.
  *
  * Mirrors aceax_arsenal_fnc_changeCurrentConfig: replace one value in the current
  * option tuple, resolve it to a class, then rewrite the selected row and re-enter
  * the selection handler so ACE equips it. Doing it through the listbox rather than
  * calling addWeaponItem directly means ACE stays the single owner of what is
- * actually on the weapon.
+ * actually on the weapon -- and it is what lets the same code swap a magazine,
+ * since ACE's handler already knows what the current panel does with a click.
  *
  * Arguments:
  * 0: Arsenal display <DISPLAY>
@@ -25,13 +26,16 @@ if ((GVAR(currentModelOptions) param [_optionIndex, ""]) == _valueName) exitWith
 private _model = GVAR(currentModel);
 if (_model == "") exitWith {};
 
+private _root = GVAR(currentRoot);
+if (_root == "") exitWith {};
+
 private _options = +GVAR(currentModelOptions);
 _options set [_optionIndex, _valueName];
 
-private _match = ["CfgWeapons", _model, _options] call GEARINFO(findConfig);
+private _match = [_root, _model, _options] call GEARINFO(findConfig);
 
 if (isNull _match) then {
-    _match = ["CfgWeapons", _model, _optionIndex, _valueName] call GEARINFO(findConfigByValue);
+    _match = [_root, _model, _optionIndex, _valueName] call GEARINFO(findConfigByValue);
 };
 
 if (isNull _match) exitWith {
@@ -40,11 +44,12 @@ if (isNull _match) exitWith {
 
 private _newValue = configName _match;
 
-// The variant has to be one the current weapon can actually take. getModelOptions
-// already restricts the offered values to GVAR(allowedItems), so this should not
-// fire -- but findConfigByValue searches every variation of the model, including
-// ones that were filtered out of this list, so it is worth refusing rather than
-// equipping something incompatible.
+// The variant has to be one the current weapon can actually take -- an optic it
+// accepts, or a magazine it chambers. getModelOptions already restricts the
+// offered values to GVAR(allowedItems), so this should not fire -- but
+// findConfigByValue searches every variation of the model, including ones that
+// were filtered out of this list, so it is worth refusing rather than equipping
+// something incompatible.
 private _allowed = GVAR(allowedItems) getOrDefault [_model, []];
 if (_allowed isNotEqualTo [] && {!(_newValue in _allowed)}) exitWith {
     TRACE_2("Resolved variant is not compatible with the selected weapon",_newValue,_model);
@@ -55,7 +60,7 @@ private _i = lbCurSel _ctrlPanel;
 
 if (_i < 0) exitWith {};
 
-private _config = configFile >> "CfgWeapons" >> _newValue;
+private _config = configFile >> _root >> _newValue;
 private _displayName = getText (_config >> "displayName");
 
 _ctrlPanel lbSetData [_i, _newValue];

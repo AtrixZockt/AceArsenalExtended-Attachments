@@ -50,6 +50,7 @@
 // cannot leak into the next session.
 ["ace_arsenal_displayClosed", {
     GVAR(currentModel) = "";
+    GVAR(currentRoot) = "";
     GVAR(currentModelOptions) = [];
     GVAR(valuesIdc) = [];
     GVAR(idcToConfig) = createHashMap;

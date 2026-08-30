@@ -28,7 +28,13 @@ OTHER_KINDS = ("nvg", "binocular")
 # Right-panel items. These only do anything in game with the aceaxatt extension
 # loaded; without it the generated entries are inert. See ATTACHMENT_COMPAT.md.
 ATTACHMENT_KINDS = ("optic", "pointer", "muzzle", "bipod")
-ALL_KINDS = WEAPON_KINDS + GEAR_KINDS + OTHER_KINDS + ATTACHMENT_KINDS
+# Also right-panel, also aceaxatt-only. One kind rather than several because ACE
+# spreads magazines over four tabs -- compatible, secondary muzzle, all, and the
+# current weapon's -- that all draw on the same CfgMagazines classes. Grenades
+# and explosives are genuinely separate tabs and are not covered; modconfig's
+# _magazine_kind excludes them.
+MAGAZINE_KINDS = ("magazine",)
+ALL_KINDS = WEAPON_KINDS + GEAR_KINDS + OTHER_KINDS + ATTACHMENT_KINDS + MAGAZINE_KINDS
 
 # Convenience names accepted in mod.yml in place of listing the tabs out.
 KIND_ALIASES = {
@@ -36,6 +42,7 @@ KIND_ALIASES = {
     "gear": GEAR_KINDS,
     "attachment": ATTACHMENT_KINDS,
     "attachments": ATTACHMENT_KINDS,
+    "magazines": MAGAZINE_KINDS,
     "all": ALL_KINDS,
 }
 

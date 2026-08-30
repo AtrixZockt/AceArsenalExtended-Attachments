@@ -37,21 +37,22 @@ if (_model == "") exitWith {
     _configControl ctrlCommit 0.2;
 };
 
-private _modelDefinition = configFile >> "XtdGearModels" >> "CfgWeapons" >> _model;
+private _root = GVAR(currentRoot);
+private _modelDefinition = configFile >> "XtdGearModels" >> _root >> _model;
 
 (_display displayCtrl IDC_optionsLabel) ctrlSetText getText (_modelDefinition >> "label");
 (_display displayCtrl IDC_optionsAuthor) ctrlSetText getText (_modelDefinition >> "author");
 
-// Only the attachments that were actually in the list for this weapon. ACEAX's
+// Only the items that were actually in the list for this weapon. ACEAX's
 // getModelOptions intersects the model's declared values[] with the options of
 // these classes, so a dropdown never offers a variant the selected weapon cannot
-// take.
+// take -- a magazine of the wrong calibre no more than an incompatible optic.
 private _allowedItems = GVAR(allowedItems) getOrDefault [_model, []];
 
 private _posY = 12;
 private _currentFaction = if (!isNull player) then { faction player } else { "" };
 
-private _options = ["CfgWeapons", _model, _modelDefinition, "options", _allowedItems] call GEARINFO(getModelOptions);
+private _options = [_root, _model, _modelDefinition, "options", _allowedItems] call GEARINFO(getModelOptions);
 
 // An option narrowed to a single value cannot be changed, so drawing it is noise.
 //

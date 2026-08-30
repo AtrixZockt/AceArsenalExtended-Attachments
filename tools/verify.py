@@ -61,7 +61,13 @@ def main() -> int:
     # Models and configs are namespaced by config root, and a model is only valid
     # for the root it was declared under -- a helmet must not resolve to a model
     # sitting in CfgGlasses. So each root is validated in isolation.
-    for root in config.roots:
+    #
+    # Driven by the roots this compat EMITS, not config.roots: the loader also
+    # reads roots it needs purely to classify (CfgWeapons is read alongside
+    # CfgMagazines so a grenade can be told from a magazine), and those carry no
+    # models of their own.
+    emitted = modinfo.load().config_roots
+    for root in emitted:
         models = built.get("XtdGearModels", {}).get(root, {})
         infos = built.get("XtdGearInfos", {}).get(root, {})
         total_models += len(models)
@@ -131,7 +137,7 @@ def main() -> int:
                 )
 
     print(
-        f"{total_models} models, {total_infos} configs across {len(config.roots)} config "
+        f"{total_models} models, {total_infos} configs across {len(emitted)} config "
         f"root(s), {len(arsenal)} arsenal items in dump"
     )
 

@@ -350,12 +350,18 @@ def unclassified(config: Config) -> int:
 
     gear = {
         k: v for k, v in found.items()
-        if k[0] != "CfgVehicles" or looks_like_a_bag(k[1])
+        if k[0] not in ("CfgVehicles", "CfgMagazines") or looks_like_a_bag(k[1])
     }
     units = sum(
         len(v) for k, v in found.items()
         if k[0] == "CfgVehicles" and not looks_like_a_bag(k[1])
     )
+    # Same treatment as the units above, and for the same reason. Most of
+    # CfgMagazines is vehicle ammunition and grenades, both correctly excluded --
+    # vanilla alone would list 400-odd of them and drown everything worth reading.
+    # There is no useful terminal heuristic here either: a 120mm tank round and a
+    # rifle magazine both bottom out at CA_Magazine.
+    ammo = sum(len(v) for k, v in found.items() if k[0] == "CfgMagazines")
 
     total = sum(len(v) for v in gear.values())
     if not total:
@@ -385,6 +391,13 @@ def unclassified(config: Config) -> int:
             f"\n({units} CfgVehicles class(es) also resolve to no kind. Expected: only "
             "backpacks\n are arsenal items there, so soldier units and vehicles belong in "
             "this bucket.)"
+        )
+    if ammo:
+        print(
+            f"\n({ammo} CfgMagazines class(es) also resolve to no kind. Expected: the "
+            "magazine\n tabs hold neither vehicle ammunition nor grenades and explosives, "
+            "which are\n their own tabs. If one of YOUR magazines is missing from the "
+            "arsenal, check its\n `type` against modconfig.MAGAZINE_TYPES first.)"
         )
     return 0
 

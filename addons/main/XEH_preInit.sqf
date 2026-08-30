@@ -13,6 +13,10 @@ ADDON = true;
 
 // Model currently shown in the right-hand option panel, "" when none.
 GVAR(currentModel) = "";
+// Config root that model came from -- "CfgWeapons" for an attachment,
+// "CfgMagazines" for a magazine, "" when none. Every ACEAX gearinfo lookup needs
+// it, and it is set once per refresh rather than re-derived at each call site.
+GVAR(currentRoot) = "";
 // Option values of the currently selected attachment, index-aligned with the
 // model's options[] array.
 GVAR(currentModelOptions) = [];

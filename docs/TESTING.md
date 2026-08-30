@@ -24,7 +24,7 @@ something here fails, the cause is the config merge on `rightTabContent`, not th
 
 ## 2. The kill switch
 
-CBA Settings → *ACE Arsenal Extended* → *Merge weapon attachments* → off.
+CBA Settings → *ACE Arsenal Extended* → *Merge attachments and magazines* → off.
 
 With a compat loaded, the arsenal must become indistinguishable from having the addon absent. No
 restart. This is the escape hatch if an ACE update ever breaks the fork.
@@ -141,11 +141,27 @@ halves, and its attachment data lies inert for anyone without this addon.
 
 Checks 3, 4 and 8 are the ones a naive implementation gets wrong.
 
+### Magazines
+
+The magazine tabs run the same code with a different config root, so everything above applies to
+them too. Four checks are specific to them:
+
+| # | check | why it can break |
+|---|---|---|
+| 1 | Clicking a magazine adds **one**, not two | the addon's `LBSelChanged` handler runs *alongside* ACE's; if it ever equipped anything itself, magazines would double |
+| 2 | Swapping via a dropdown adds one and removes none | `changeCurrentConfig` rewrites the row and re-enters ACE's handler — the same path, so the same risk |
+| 3 | All four ammunition tabs collapse — current weapon's, secondary muzzle's, compatible, all | they are four separate IDCs; missing one leaves that tab flat with no error |
+| 4 | Grenades, explosives, misc items and container contents are **untouched** | `fnc_currentPanelRoot` returns `""` for them; if it did not, the panel would collapse rows nothing has data for |
+
+Check 1 is the one to run first. It is the failure mode the design is built to avoid — see the note
+at the top of `fnc_onSelChangedRight.sqf` — and it is silent: nothing errors, you simply end up with
+twice the ammunition you asked for.
+
 ---
 
 ## 5a. When the panel looks wrong — start here
 
-Turn on **CBA Settings → ACE Arsenal Extended → Log attachment merging** and open the arsenal. Every
+Turn on **CBA Settings → ACE Arsenal Extended → Log right panel merging** and open the arsenal. Every
 time the right panel fills, the RPT gets:
 
 ```
