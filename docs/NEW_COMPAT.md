@@ -222,7 +222,9 @@ z\aceaxfoo\addons\main
 **`.gitignore`** and **`LICENSE`** — copy both unchanged out of the repo you cloned in Step 1.
 
 > `addons/main/config.cpp` and everything under `addons/main/XtdGearModels/` and `XtdGearInfos/`
-> are **generated**. Never create or edit those by hand; they get overwritten.
+> are **generated** on this route. Never create or edit those by hand here; they get overwritten
+> the next time you run `gen_aceax.py`. If you would rather write them yourself and skip the
+> generator entirely, [example-compat/](example-compat/) is a complete one to copy.
 
 ---
 

@@ -196,7 +196,9 @@ LICENSE
 addons/main/$PBOPREFIX$    z\<yourprefix>\addons\main
 ```
 
-`addons/main/config.cpp` and both `XtdGear` trees are **generated** — do not create them by hand.
+`addons/main/config.cpp` and both `XtdGear` trees are **generated** — do not create them by hand
+*in a compat you generate*, because `gen_aceax.py` overwrites them. The format itself is not off
+limits: [example-compat/](example-compat/) is a hand-written compat with nothing to overwrite it.
 
 > Write `$PBOPREFIX$` with an editor, not with shell `printf`/`echo -e`. `\a` is the BEL escape, so
 > `printf 'z\\aceaxfoo\\addons\\main'` silently produces `z<BEL>ceaxfoo<BEL>ddons\main` and

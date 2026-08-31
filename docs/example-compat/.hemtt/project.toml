@@ -1,0 +1,25 @@
+name = "ACEAX FooMod Compat"
+prefix = "aceaxfoo"
+author = "You"
+template = "cba"
+mainprefix = "z"
+sig_version = 3
+
+# A compat has no script_version.hpp to read a version out of -- it ships no SQF --
+# so the version is written literally here. Do not copy the `path = "..."` form used
+# by addons that do have one.
+[version]
+major = 1
+minor = 0
+patch = 0
+git_hash = 0
+
+[files]
+include = [
+    "mod.cpp"
+]
+exclude = [
+    "*.psd",
+    "*.png",
+    "*.tga"
+]

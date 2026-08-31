@@ -14,6 +14,7 @@ Then, whichever you started with:
 
 | | |
 |---|---|
+| **[example-compat/](example-compat/)** | A complete compat, written by hand and buildable — copy it, rename two things, point it at your classes. No Python, no config dump. Start here if the mod is small enough to type out, or just to see what the format actually looks like. |
 | **[OPTIONS.md](OPTIONS.md)** | The shared option-name vocabulary — `camo`, `mount`, `magnifier`, `platform` and friends — plus the tables for mods that write the distinction somewhere awkward: `compose:`, `name_prefixes:`, `class_prefixes:`. Read before inventing your own names, so compats by different people read alike. |
 | **[WORKFLOW.md](WORKFLOW.md)** | Day-to-day reference: what each script does, what order to run them in, and what every message means. |
 | **[TESTING.md](TESTING.md)** | How the addon itself is verified, and write-ups of the bugs that actually shipped. Worth skimming before changing anything in `tools/`. |

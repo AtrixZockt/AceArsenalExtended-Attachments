@@ -78,6 +78,10 @@ under `addons/main/` is generated.
 It is not attachment-only — the same generator builds weapon and gear compats, and has been run
 against mods ranging from 121 attachments to 841 pieces of gear.
 
+The generator is not compulsory. A compat is pure config — no SQF, no macros — so a small one is
+quicker to write by hand than to set the toolchain up for:
+[docs/example-compat/](docs/example-compat/) is a complete working one to copy.
+
 **Start with whichever fits what you are covering:**
 
 | | |
@@ -89,6 +93,7 @@ Then, either way:
 
 | | |
 |---|---|
+| [docs/example-compat/](docs/example-compat/) | a complete compat written **by hand** — copy it, rename two things, point it at your classes. No Python, no config dump. For a mod small enough to type out, or just to see the format |
 | [docs/OPTIONS.md](docs/OPTIONS.md) | the shared option-name vocabulary — read this before inventing your own |
 | [docs/WORKFLOW.md](docs/WORKFLOW.md) | day-to-day tooling reference, and what every message means |
 | [docs/TESTING.md](docs/TESTING.md) | how this addon is verified, and the bugs that actually shipped |
