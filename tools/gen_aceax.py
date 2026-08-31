@@ -185,8 +185,17 @@ def collect(config: Config, ov: dict) -> tuple[list[Model], list[str], set[str]]
         # base "G36A1" and should differ only by camo. The root has to stay in the
         # key because a model is emitted under exactly one of them, so a helmet and
         # a pair of goggles sharing a display name cannot be one model.
+        #
+        # The KIND is in the key for the same reason one step finer. A model is
+        # rendered in exactly one arsenal tab, so members from two tabs cannot be
+        # one model however alike their names -- which is what find_tab_spanners
+        # has always reported, after the fact. Keying on it makes the split happen
+        # instead of the error: NIArms writes 992 rail panels under four display
+        # names, and the under-rail copies sit in the bipod slot while the side
+        # ones are pointers. Same name, same root, two tabs, and no marker
+        # anywhere in the display name to tell them apart.
         label = base + "".join(f" ({e})" for e in extra)
-        key = (item.config_root, label)
+        key = (item.config_root, item.kind, label)
         grouped[key].append(Member(item, values))
         if pack_override:
             forced_pack[key] = pack_override
@@ -196,7 +205,7 @@ def collect(config: Config, ov: dict) -> tuple[list[Model], list[str], set[str]]
     pack_order = modinfo.load().pack_order
 
     for key in sorted(grouped):
-        config_root, label = key
+        config_root, _kind, label = key
         members = grouped[key]
         if len(members) < 2:
             continue

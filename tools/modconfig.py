@@ -95,6 +95,13 @@ WEAPON_ROOTS = {
     "launcher": "launcher",
     "binocular": "binocular",
     "nvgoggles": "nvg",
+    # A mod may hang a rifle off a specific vanilla weapon rather than off Rifle,
+    # and then the chain runs out on that weapon's base instead. NIArms V14's
+    # FWA SIG 510 inherits srifle_DMR_06_F, whose forward declaration in the PBO
+    # names DMR_06_base_F -- so root_parent is "dmr_06_base_f" and the rifle
+    # classified as nothing at all, silently. These are still Rifle underneath;
+    # only the vanilla intermediate the dump cannot see is missing.
+    "dmr_06_base_f": "primary",
 }
 
 # Wearable CfgWeapons items are recognised by what their ItemInfo inherits from.
@@ -214,6 +221,12 @@ VANILLA_MAGAZINE_BASES = {
     "30rnd_556x45_stanag",
     "30rnd_65x39_caseless_mag",
     "30rnd_9x21_mag",
+    # vanilla's standard sidearm magazine (`type = 16`). NIArms hangs every one of
+    # its handgun magazines off it and declares no type of its own, so without this
+    # line the whole P226/P228/P229/P239/C96/M712 catalogue -- 34 classes -- is
+    # dropped silently. Checked against the other magazine compats: none of them
+    # has a class that newly classifies because of it.
+    "16rnd_9x21_mag",
     "100rnd_65x39_caseless_mag",
     "150rnd_762x51_box",
     "200rnd_65x39_cased_box",

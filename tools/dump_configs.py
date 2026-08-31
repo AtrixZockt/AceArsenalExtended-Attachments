@@ -40,9 +40,23 @@ def dump_stringtable(pbo: Path, out_xml: Path) -> None:
     """displayName is usually a $STR_ key, so the stringtables are needed too.
 
     Filename casing is not consistent between mods or even between packs of one mod.
+
+    The old file is removed first, and success is judged by whether a file actually
+    appeared rather than by the exit code. Both are load-bearing: `hemtt utils pbo
+    extract` REFUSES to write over an existing file, and reports that refusal as
+    "ERROR Output file already exists" on stdout while still exiting 0. Left alone
+    that makes --force a silent no-op for stringtables -- configs get re-read from
+    the updated mod while every display name stays at whatever the previous source
+    said. NIArms hit exactly this moving to the V14 Workshop item: 23 of 27 packs
+    kept the older item's names, and 67 magazines resolved to a raw $STR_ key.
+
+    The config.bin path never had the problem only because out_bin is unlinked
+    after each pack, so it is never there to collide with.
     """
+    out_xml.unlink(missing_ok=True)
     for name in ("stringtable.xml", "Stringtable.xml"):
-        if run(["hemtt", "utils", "pbo", "extract", str(pbo), name, str(out_xml)], check=False):
+        run(["hemtt", "utils", "pbo", "extract", str(pbo), name, str(out_xml)], check=False)
+        if out_xml.is_file():
             return
     print(f"    (no stringtable in {pbo.name})", file=sys.stderr)
 
