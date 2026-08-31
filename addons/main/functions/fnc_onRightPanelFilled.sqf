@@ -1,19 +1,30 @@
 #include "..\script_component.hpp"
 #include "..\defines.hpp"
 /*
- * ace_arsenal_rightPanelFilled -- schedule the collapse for the next frame.
+ * ace_arsenal_rightPanelFilled -- collapse the list, then refresh the options.
  *
- * ACE raises this event partway through fnc_fillRightPanel: after the list is
- * built, but BEFORE it calls fillSort (which re-sorts the panel) and before it
- * restores the previous selection. Doing the work here means interleaving with all
- * of that, which is what the first version tried and got wrong.
+ * The two halves run at different times, and the split is the point.
  *
- * Deferring by one frame means ACE has completely finished. The panel is sorted,
- * the selection is restored, and nothing of ACE's runs afterwards -- so the row to
- * keep is simply the selected one, and there is no ordering to reason about.
+ * ACE raises this event partway through fnc_fillRightPanel: the list is built, but
+ * it then goes on to sort the panel and to restore the selection by matching the
+ * equipped class against each row's lbData.
  *
- * The cost is one frame showing the un-collapsed list, which is imperceptible and
- * is already true of the option panel.
+ * The COLLAPSE runs here, synchronously, before any of that. Deleting rows while
+ * ACE still has the selection cleared means ACE performs its restore against the
+ * already-collapsed list and picks the surviving row itself -- so the addon never
+ * has to move the selection, and never has to call lbSetCurSel (which would fire
+ * ACE's onSelChangedRight and re-add a magazine).
+ *
+ * This is the hook point ACEAX uses on the left panel for the same reason:
+ * aceax_arsenal_fnc_onLeftPanelFilled reconciles rows during the fill event, and
+ * ACE's restore loop runs afterwards.
+ *
+ * An earlier version deferred both halves by a frame. That put the collapse AFTER
+ * ACE's restore, so deleting rows shifted the selection out from under it -- the
+ * weapon kept the right attachment while the panel showed a different one.
+ *
+ * The REFRESH still waits a frame, because it reads lbCurSel and ACE has not set it
+ * yet at this point in the fill.
  *
  * Arguments:
  * 0: Arsenal display <DISPLAY>
@@ -26,10 +37,11 @@
 
 params ["_display"];
 
+[_display] call FUNC(collapsePanel);
+
 [{
     params ["_display"];
     if (isNull _display) exitWith {};
 
-    [_display] call FUNC(collapsePanel);
     [_display] call FUNC(refreshOptions);
 }, [_display]] call CBA_fnc_execNextFrame;

@@ -46,6 +46,17 @@
 #define IDC_buttonMagALL 32
 #define MAGAZINE_SLOT_IDCS IDC_buttonCurrentMag, IDC_buttonCurrentMag2, IDC_buttonMag, IDC_buttonMagALL
 
+// The panels that have a single equipped item, in ACE's order. ACE looks up a
+// weapon's items array with
+// `[IDC_buttonMuzzle, IDC_buttonItemAcc, IDC_buttonOptic, IDC_buttonBipod, IDC_buttonCurrentMag, IDC_buttonCurrentMag2] find _ctrlIDC`
+// (fnc_fillRightPanel), so position IS the index into that array. fnc_equippedItem
+// depends on it; keep it in this order.
+//
+// IDC_buttonMag and IDC_buttonMagALL are deliberately absent. They list ammunition
+// compatible with the weapon rather than the contents of a slot, so there is no
+// equipped item to read and the listbox row is the only thing to go on.
+#define EQUIPPED_SLOT_IDCS ATTACHMENT_SLOT_IDCS, IDC_buttonCurrentMag, IDC_buttonCurrentMag2
+
 // Deliberately NOT handled: IDC_buttonThrow (34) and IDC_buttonPut (36), the
 // grenade and explosive tabs. They are CfgMagazines too and would need only a
 // third list here, but the toolchain does not generate data for them -- see
@@ -59,12 +70,13 @@
 #define IDX_CURR_BINO_ITEMS 21
 
 // Same order as the IDX_CURR_*_ITEMS block above, so a left-panel IDC turns into
-// an index into ace_arsenal_currentItems by position.
+// an index into ace_arsenal_currentItems by position -- the four indices are
+// contiguous, so the position simply adds to IDX_CURR_PRIMARY_WEAPON_ITEMS.
 //
-// Nothing reads this today. The collapse works off what ACE already put in the
-// listbox, so it never needs to ask which weapon is selected -- see the note at
-// the top of fnc_collapsePanel. Kept because it is the awkward half of ACE's
-// layout to rediscover, and left here rather than in a commit message.
+// fnc_equippedItem reads this together with EQUIPPED_SLOT_IDCS to answer "what is
+// actually on the weapon", which is what the panel is driven from. An earlier
+// version worked purely off what ACE had put in the listbox; that is what let the
+// row and the weapon disagree after a refill. Both orders are load-bearing.
 #define WEAPON_PANEL_IDCS IDC_buttonPrimaryWeapon, IDC_buttonSecondaryWeapon, IDC_buttonHandgun, IDC_buttonBinoculars
 
 // ---------------------------------------------------------------------------

@@ -1,4 +1,5 @@
 PREP(currentPanelRoot);
+PREP(equippedItem);
 PREP(onRightPanelFilled);
 PREP(collapsePanel);
 PREP(onSelChangedRight);

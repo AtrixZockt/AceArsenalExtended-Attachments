@@ -28,16 +28,30 @@ if (missionNamespace getVariable [QGVAR(enabled), true]
     && {GVAR(collapsed)}
     && {_root != ""}) then {
 
-    private _ctrl = _display displayCtrl IDC_rightTabContent;
-    private _curSel = lbCurSel _ctrl;
+    // The equipped item first, not the row. The two can disagree -- see
+    // fnc_equippedItem -- and when they do it is the weapon that is right; showing
+    // the row instead is what made the panel tick the wrong variant after a refill.
+    // ACEAX reads the left panel the same way round (fnc_onSelChangedLeft).
+    //
+    // Safe on the click path too: ACE's config-defined onLBSelChanged runs before
+    // handlers added with ctrlAddEventHandler, so by the time fnc_onSelChangedRight
+    // gets here ACE has equipped the clicked item and currentItems is current.
+    _class = call FUNC(equippedItem);
 
-    if (_curSel >= 0) then {
-        // "" is ACE's <empty> row, which unequips rather than selecting an item.
-        _class = _ctrl lbData _curSel;
+    // The compatible-ammunition tabs have no equipped slot, so the row is all there
+    // is to go on. "" is also ACE's <empty> row, which unequips rather than
+    // selecting an item, and correctly leaves the panel down.
+    if (_class == "") then {
+        private _ctrl = _display displayCtrl IDC_rightTabContent;
+        private _curSel = lbCurSel _ctrl;
 
-        if (_class != "") then {
-            _model = [_root, _class] call GEARINFO(getConfigModel);
+        if (_curSel >= 0) then {
+            _class = _ctrl lbData _curSel;
         };
+    };
+
+    if (_class != "") then {
+        _model = [_root, _class] call GEARINFO(getConfigModel);
     };
 };
 

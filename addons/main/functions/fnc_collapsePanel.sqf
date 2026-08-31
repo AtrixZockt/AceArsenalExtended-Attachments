@@ -3,11 +3,18 @@
 /*
  * Collapse the right panel so each grouped model occupies one row.
  *
- * Runs a frame after ace_arsenal_rightPanelFilled, once ACE has finished sorting
- * the panel and restoring the selection. At that point the list holds exactly the
- * items valid for the selected weapon and tab -- ACE has already filtered by
- * compatibleItems, or by compatible magazines -- so collapsing here needs no
- * knowledge of the weapon at all.
+ * Runs synchronously inside ace_arsenal_rightPanelFilled, before ACE sorts the panel
+ * and restores the selection -- see the note in fnc_onRightPanelFilled for why that
+ * ordering matters. The list already holds exactly the items valid for the selected
+ * weapon and tab, because ACE has filtered by compatibleItems or by compatible
+ * magazines before raising the event.
+ *
+ * Which row survives a group is decided by the equipped item, not by the listbox:
+ * ACE has cleared the selection by this point, and even after it restores one, the
+ * row it lands on is not reliably the equipped variant. fnc_equippedItem has the
+ * detail. Where the equipped class has no row of its own, the surviving row is
+ * rewritten to BE that class, so ACE's restore finds it -- the same reconciliation
+ * ACEAX does on the left in aceax_arsenal_fnc_onLeftPanelFilled.
  *
  * Collapsing the LIST rather than ace_arsenal_virtualItems is the whole design:
  * compatibility is per weapon, so a representative chosen once and globally might
@@ -38,12 +45,16 @@ private _ctrl = _display displayCtrl IDC_rightTabContent;
 private _size = lbSize _ctrl;
 private _root = call FUNC(currentPanelRoot);
 
+// What is actually fitted to this slot. Logged rather than lbCurSel, which ACE has
+// cleared to -1 by this point in the fill and would say nothing.
+private _equipped = call FUNC(equippedItem);
+
 if (_debug) then {
-    diag_log format ["[aceaxatt] collapse: root=%1 leftPanel=%2 rightPanel=%3 rows=%4 selected=%5 ctrlNull=%6 ctrlType=%7 enabled=%8",
+    diag_log format ["[aceaxatt] collapse: root=%1 leftPanel=%2 rightPanel=%3 rows=%4 equipped=%5 ctrlNull=%6 ctrlType=%7 enabled=%8",
         _root,
         missionNamespace getVariable ["ace_arsenal_currentLeftPanel", "nil"],
         missionNamespace getVariable ["ace_arsenal_currentRightPanel", "nil"],
-        _size, lbCurSel _ctrl, isNull _ctrl, ctrlType _ctrl,
+        _size, _equipped, isNull _ctrl, ctrlType _ctrl,
         missionNamespace getVariable [QGVAR(enabled), true]];
 };
 
@@ -51,10 +62,13 @@ if !(missionNamespace getVariable [QGVAR(enabled), true]) exitWith {};
 if (_root == "") exitWith {};
 if (_size < 2) exitWith { GVAR(collapsed) = true };
 
-// ACE has already restored the selection, so this is the equipped attachment or
-// the highlighted magazine. Keeping its row is what stops the selection falling
-// back to <empty> and looking like the item came off.
-private _selected = lbCurSel _ctrl;
+// The model the equipped item belongs to. Only that group needs a row chosen for
+// it; every other group is free to keep whichever row came first.
+private _equippedModel = if (_equipped != "") then {
+    [_root, _equipped] call GEARINFO(getConfigModel)
+} else {
+    ""
+};
 
 // Bucket the rows by model. Rows with no data (ACE's "<empty>" entry) and rows
 // whose class has no XtdGearInfo are left alone -- an unmapped item keeps its
@@ -98,12 +112,51 @@ for "_i" from 0 to (_size - 1) do {
 private _doomed = [];
 
 {
+    private _model = _x;
     private _rows = _y;
+
+    private _keep = _rows select 0;
+
+    // The equipped item's group is the one that has to survive as the equipped
+    // variant -- anything else and the panel describes a scope the weapon is not
+    // wearing, while ACE's restore either highlights the wrong row or gives up and
+    // falls back to <empty>.
+    //
+    // Deliberately outside the "more than one row" test below: a family with a single
+    // compatible variant still has to be reconciled, and it is not collapsing that
+    // makes it necessary.
+    if (_model == _equippedModel) then {
+        private _match = _rows select { (_ctrl lbData _x) == _equipped };
+
+        if (_match isNotEqualTo []) then {
+            _keep = _match select 0;
+        } else {
+            // No row of its own: ACE listed the family under a different class of the
+            // same model. Make the survivor BE the equipped variant instead of deleting
+            // it -- ACE then matches it on lbData, and refreshOptions reads the right
+            // values off it. Same four calls as fnc_changeCurrentConfig, and the same
+            // fix ACEAX applies on the left.
+            private _config = configFile >> _root >> _equipped;
+            private _displayName = getText (_config >> "displayName");
+
+            _ctrl lbSetData    [_keep, _equipped];
+            _ctrl lbSetText    [_keep, _displayName];
+            _ctrl lbSetTooltip [_keep, format ["%1\n%2", _displayName, _equipped]];
+            _ctrl lbSetPicture [_keep, getText (_config >> "picture")];
+
+            // The row's old class went into allowedItems during the bucketing pass,
+            // but the one now on it did not. Without this, changeCurrentConfig's
+            // membership guard would refuse to switch back to the equipped variant.
+            (GVAR(allowedItems) getOrDefault [_model, [], true]) pushBackUnique _equipped;
+
+            if (_debug) then {
+                diag_log format ["[aceaxatt]   row %1 rewritten to equipped %2", _keep, _equipped];
+            };
+        };
+    };
 
     // A model with one row here is not a group; nothing to collapse.
     if (count _rows > 1) then {
-        private _keep = if (_selected in _rows) then { _selected } else { _rows select 0 };
-
         {
             if (_x != _keep) then { _doomed pushBack _x };
         } forEach _rows;

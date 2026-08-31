@@ -165,7 +165,7 @@ Turn on **CBA Settings → ACE Arsenal Extended → Log right panel merging** an
 time the right panel fills, the RPT gets:
 
 ```
-[aceaxatt] collapse: leftPanel=2002 rightPanel=22 rows=14 selected=0
+[aceaxatt] collapse: root=CfgWeapons leftPanel=2002 rightPanel=22 rows=14 equipped=hlc_optic_Kern_550
 [aceaxatt]   row 1: optic_Aco -> 
 [aceaxatt]   row 2: hlc_optic_Kern_550 -> niarms_fn3011_kern_aarau_4x24
 [aceaxatt]   group niarms_fn3011_kern_aarau_4x24 -> rows [2,3]
@@ -175,6 +175,12 @@ time the right panel fills, the RPT gets:
 An unmapped attachment resolving to a blank model is correct and expected — it keeps its own row.
 What is *not* expected is many unrelated classes resolving to the same model, which is the shape of
 the first bug this addon shipped with.
+
+`equipped=` is the class `fnc_equippedItem` read out of `ace_arsenal_currentItems`, and it is the
+first thing to check when the panel shows the wrong variant. It is blank for the compatible-ammunition
+tabs and whenever a container is selected on the left — both correct, those panels have no equipped
+slot and fall back to the listbox row. A `row N rewritten to equipped X` line means ACE listed the
+family under a different class than the one fitted, and the surviving row was reconciled to match.
 
 ### First check the RPT for a broken control
 
@@ -218,12 +224,17 @@ the option panel. No ACE class is touched, so the failure mode is gone rather th
 
 Two further changes came out of it, both worth keeping regardless:
 
-- **The collapse now runs a frame after `ace_arsenal_rightPanelFilled`, not during it.** ACE raises
-  that event partway through `fnc_fillRightPanel` and then goes on to call `fillSort` (which
-  re-sorts the panel) and to restore the selection. Mutating the list in the middle of that meant
-  interleaving with work ACE was not expecting to be interrupted. Deferring by one frame means ACE
-  has finished, and it also simplifies the code: the row to keep is just `lbCurSel`, with no need to
-  look up the equipped class from `ace_arsenal_currentItems`.
+- **The collapse was deferred a frame past `ace_arsenal_rightPanelFilled`.** The reasoning was that
+  ACE raises that event partway through `fnc_fillRightPanel` and then goes on to call `fillSort` and
+  to restore the selection, so waiting until ACE had finished avoided interleaving — and it looked
+  like a simplification, because the row to keep was then just `lbCurSel`, with no need to look up
+  the equipped class from `ace_arsenal_currentItems`.
+
+  **That was wrong, and it is the third live failure below.** Running after ACE's restore means
+  mutating a list ACE has already selected into: every deleted row shifts the ones beneath it, and
+  nothing put the selection back. The collapse now runs *during* the event again — before the sort
+  and the restore — and chooses the surviving row from the equipped item instead of from `lbCurSel`.
+  Only `refreshOptions` still waits a frame, because it reads a selection ACE has not set yet.
 - **A safety floor**, refusing any pass that wanted to remove more than half the list. This was a
   mistake and is described below — it shipped, and it broke merging entirely the moment the grouping
   data got good.
@@ -286,7 +297,16 @@ Worth knowing what to look at first when something does go wrong.
   this addon shipped with, but caused externally: the control loses its type and the whole panel
   goes blank, for stock ACE as much as for us. The `ctrlType` check names it on arsenal open.
 - **ACE moves `ace_arsenal_rightPanelFilled`** so it fires *after* the selection is restored rather
-  than before. Symptom: check 4 fails first — attachments look unequipped.
+  than before. The collapse now depends on that ordering: it deletes rows during the event precisely
+  so ACE's restore runs against the collapsed list and selects the surviving row itself. If the event
+  moved, the deletions would once more shift the list under a selection ACE had already made.
+  Symptom: check 4 fails first — the right attachment stays on the weapon while the panel highlights
+  a different variant, or falls back to `<empty>` and looks unequipped.
+- **ACE changes `fnc_baseWeapon`, or a compat declares `baseWeapon` on its variants.** ACE normalises
+  the equipped attachment through it before matching rows (`fnc_fillRightPanel`), so the class it
+  looks for is not always the class that is fitted. `fnc_collapsePanel` handles the divergence by
+  rewriting the surviving row to the equipped class; `fnc_equippedItem` is why the dropdowns stay
+  right even when that fails.
 - **ACEAX changes its IDC ranges** into ours. Symptom: check 5 — controls from one panel appear in
   the other.
 - **ACEAX implements attachments itself.** The generated compat data should still be valid (same
