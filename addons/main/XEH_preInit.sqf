@@ -33,6 +33,10 @@ GVAR(allowedItems) = createHashMap;
 // a list that still holds every duplicate would be worse than no dropdowns.
 GVAR(collapsed) = false;
 GVAR(adjustedHeight) = 0;
+// True while ACE has the arsenal UI hidden -- the loadouts screen, or its own
+// Hide button. Ours is a third-party control, so ACE's hide pass does not know
+// about it and we track the state ourselves; see fnc_toggleUI.
+GVAR(uiHidden) = false;
 
 [
     QGVAR(enabled),

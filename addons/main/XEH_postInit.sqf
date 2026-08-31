@@ -46,6 +46,28 @@
     _this call FUNC(onRightPanelFilled);
 }] call CBA_fnc_addEventHandler;
 
+// ---------------------------------------------------------------------------
+// Hide the option panel whenever ACE hides the arsenal.
+//
+// ace_arsenal_fnc_buttonHide ctrlShows a hardcoded list of ACE's own IDCs, so it
+// never touches ours -- without these the panel floats on top of the loadouts
+// screen. See fnc_toggleUI.
+// ---------------------------------------------------------------------------
+["ace_arsenal_loadoutsDisplayOpened", { [false] call FUNC(toggleUI); }] call CBA_fnc_addEventHandler;
+["ace_arsenal_loadoutsDisplayClosed", { [true] call FUNC(toggleUI); }] call CBA_fnc_addEventHandler;
+
+// Also covers the Hide button (idc 1002) and its BACKSPACE keybind, which the
+// two events above miss -- buttonHide is called from all three places.
+//
+// Newer ACE than the loadouts events (added 2026-02-12, ACE #11285), so it is an
+// addition to them rather than a replacement: on an older ACE it simply never
+// fires and the loadouts case is still handled. On the loadouts path both fire;
+// that is harmless, since they set the same state and ctrlShow is idempotent.
+["ace_arsenal_showToggle", {
+    params ["", "_show"];
+    [_show] call FUNC(toggleUI);
+}] call CBA_fnc_addEventHandler;
+
 // Nothing is grouped once the arsenal is gone; drop the state so a stale model
 // cannot leak into the next session.
 ["ace_arsenal_displayClosed", {
@@ -56,4 +78,8 @@
     GVAR(idcToConfig) = createHashMap;
     GVAR(allowedItems) = createHashMap;
     GVAR(collapsed) = false;
+    // Closing the arsenal from the loadouts screen leaves this set. Without the
+    // reset the panel would stay hidden for the rest of the session, because
+    // nothing raises a show event on the way back in.
+    GVAR(uiHidden) = false;
 }] call CBA_fnc_addEventHandler;

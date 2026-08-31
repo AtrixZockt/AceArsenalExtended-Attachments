@@ -7,3 +7,4 @@ PREP(generateOptionsUI);
 PREP(refreshCheckboxes);
 PREP(changeCurrentConfig);
 PREP(onValueButton);
+PREP(toggleUI);

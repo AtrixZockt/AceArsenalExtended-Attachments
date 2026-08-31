@@ -11,6 +11,9 @@
 #define GRID_W (pixelW * pixelGridNoUIScale * pixelScale)
 #define GRID_H (pixelH * pixelGridNoUIScale * pixelScale)
 
+// ---- the arsenal display itself -------------------------------------------
+#define IDD_ace_arsenal 1127001
+
 // ---- panel controls -------------------------------------------------------
 #define IDC_leftTabContent 13
 #define IDC_rightTabContent 14

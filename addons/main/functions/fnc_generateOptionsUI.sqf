@@ -150,7 +150,10 @@ GVAR(adjustedHeight) = 120 min (_posY + 10);
 _listControl ctrlSetPositionH (safeZoneH - (GVAR(adjustedHeight) + 32) * GRID_H);
 _configControl ctrlSetPositionY ((safeZoneY + 14 * GRID_H) + (safeZoneH - (GVAR(adjustedHeight) + 28) * GRID_H));
 _configControl ctrlSetPositionH (GVAR(adjustedHeight) * GRID_H);
-_configControl ctrlShow true;
+// Not an unconditional show: this rebuild is deferred a frame by
+// onRightPanelFilled, so it can land after ACE has hidden the arsenal and would
+// otherwise force the panel back on over the loadouts screen.
+_configControl ctrlShow (!GVAR(uiHidden));
 _listControl ctrlCommit 0.2;
 _configControl ctrlCommit 0.2;
 
