@@ -5,8 +5,15 @@
 //
 // ctrlAddEventHandler adds a handler alongside the control's config-defined
 // onLBSelChanged; it does not replace it (that is ctrlSetEventHandler). So ACE's
-// own handler still runs and still equips the item, and this one runs afterwards
-// purely to rebuild the option panel.
+// own handler still runs and still equips the item, and this one only rebuilds the
+// option panel.
+//
+// Which of the two the engine calls FIRST is deliberately not relied on anywhere.
+// It is not documented, and an earlier version that assumed ACE went first read
+// ace_arsenal_currentItems here and showed the previous attachment until you clicked
+// twice -- see TESTING.md, "the third live failure". Handlers on this control take
+// their answer from the arguments they are handed, which is also how ACE hooks
+// controls it does not own (ace_inventory_fnc_onLBSelChanged).
 //
 // The alternative -- patching `class rightTabContent` in config -- is what broke
 // the panel entirely the first time round: re-declaring an existing class without

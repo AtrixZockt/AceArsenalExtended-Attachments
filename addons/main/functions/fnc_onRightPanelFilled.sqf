@@ -23,8 +23,13 @@
  * ACE's restore, so deleting rows shifted the selection out from under it -- the
  * weapon kept the right attachment while the panel showed a different one.
  *
- * The REFRESH still waits a frame, because it reads lbCurSel and ACE has not set it
+ * The REFRESH still waits a frame. It works from the equipped item, which is already
+ * correct here, but it falls back to lbCurSel for the panels that have no equipped
+ * slot -- the compatible-ammunition tabs -- and ACE has not restored the selection
  * yet at this point in the fill.
+ *
+ * It is also deliberately NOT told the selection is leading: on a refill the row can
+ * disagree with the weapon, and there the weapon wins. See fnc_refreshOptions.
  *
  * Arguments:
  * 0: Arsenal display <DISPLAY>

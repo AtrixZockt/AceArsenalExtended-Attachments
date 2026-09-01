@@ -60,6 +60,17 @@ private _i = lbCurSel _ctrlPanel;
 
 if (_i < 0) exitWith {};
 
+// The panel and the row it is about to rewrite must describe the same family.
+//
+// They can only disagree if something upstream is out of step, and this is where that
+// turns from a cosmetic glitch into a changed loadout: the value resolved above came
+// from GVAR(currentModel), so equipping it onto a row of some other family swaps the
+// player's attachment for one they did not ask for. That is exactly what the
+// one-click-behind bug did. Do nothing instead, and say so.
+if (([_root, _ctrlPanel lbData _i] call GEARINFO(getConfigModel)) != _model) exitWith {
+    TRACE_2("selected row does not belong to the panel's model -- refusing to rewrite it",_model,_ctrlPanel lbData _i);
+};
+
 private _config = configFile >> _root >> _newValue;
 private _displayName = getText (_config >> "displayName");
 

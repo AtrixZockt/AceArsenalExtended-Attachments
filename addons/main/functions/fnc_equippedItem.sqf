@@ -13,9 +13,17 @@
  *     selects a different class of the same model -- or fails to match and falls
  *     back to <empty>.
  *
- * ACEAX does the same thing on the left panel and for the same reason: see
- * aceax_arsenal_fnc_onSelChangedLeft, which calls ACE's handler and then re-reads
- * the result out of ace_arsenal_currentItems rather than trusting the row.
+ * ACEAX does the same thing on the left panel: aceax_arsenal_fnc_onSelChangedLeft
+ * calls ACE's handler and then re-reads the result out of ace_arsenal_currentItems
+ * rather than trusting the row.
+ *
+ * Do not read that as licence to call this from a selection handler. ACEAX can rely
+ * on currentItems there because it FORKED the control class in config, so ACE's
+ * handler runs only where ACEAX calls it -- explicitly, on the line before. This
+ * addon adds alongside instead and controls no such ordering: on a click ACE has not
+ * necessarily written currentItems yet, and this function then returns the PREVIOUS
+ * attachment. That is the third live failure in TESTING.md. Selection handlers take
+ * the class from the row they were handed; this is for the refill path.
  *
  * Reads the ace_arsenal globals directly rather than taking arguments, like
  * fnc_currentPanelRoot -- the panel state is the input, and every caller would

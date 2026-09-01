@@ -9,12 +9,14 @@
  *
  * Arguments:
  * 0: Arsenal display <DISPLAY>
+ * 1: Called from a selection change, so the listbox row leads the equipment rather
+ *    than following it <BOOL> (default: false)
  *
  * Return Value:
  * None
  */
 
-params ["_display"];
+params ["_display", ["_fromSelection", false]];
 
 private _model = "";
 private _class = "";
@@ -28,21 +30,29 @@ if (missionNamespace getVariable [QGVAR(enabled), true]
     && {GVAR(collapsed)}
     && {_root != ""}) then {
 
-    // The equipped item first, not the row. The two can disagree -- see
-    // fnc_equippedItem -- and when they do it is the weapon that is right; showing
-    // the row instead is what made the panel tick the wrong variant after a refill.
-    // ACEAX reads the left panel the same way round (fnc_onSelChangedLeft).
-    //
-    // Safe on the click path too: ACE's config-defined onLBSelChanged runs before
-    // handlers added with ctrlAddEventHandler, so by the time fnc_onSelChangedRight
-    // gets here ACE has equipped the clicked item and currentItems is current.
-    _class = call FUNC(equippedItem);
+    private _ctrl = _display displayCtrl IDC_rightTabContent;
 
-    // The compatible-ammunition tabs have no equipped slot, so the row is all there
-    // is to go on. "" is also ACE's <empty> row, which unequips rather than
-    // selecting an item, and correctly leaves the panel down.
+    // Which of the row and the weapon to believe depends on how we got here, and the
+    // caller is the only one that knows.
+    //
+    // After a REFILL the row can disagree with the weapon -- ACE's baseWeapon
+    // normalisation lands on a sibling variant, or its match fails and it falls back
+    // to <empty> -- and there the weapon is right. See fnc_equippedItem.
+    //
+    // After a CLICK it is the other way round. ACE equips the clicked row's data
+    // verbatim (ace_arsenal_fnc_onSelChangedRight: `_item = _control lbData _curSel`),
+    // so the row is by definition what is about to be on the weapon, no matter which
+    // handler runs first. currentItems meanwhile still holds the PREVIOUS attachment,
+    // because ACE does not write it until the end of its own handler. Reading it here
+    // is what left the panel one click behind.
+    if (!_fromSelection) then {
+        _class = call FUNC(equippedItem);
+    };
+
+    // Also the fallback for the compatible-ammunition tabs, which have no equipped
+    // slot. "" is ACE's <empty> row, which unequips rather than selecting an item,
+    // and correctly leaves the panel down.
     if (_class == "") then {
-        private _ctrl = _display displayCtrl IDC_rightTabContent;
         private _curSel = lbCurSel _ctrl;
 
         if (_curSel >= 0) then {

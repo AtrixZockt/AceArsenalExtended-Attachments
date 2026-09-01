@@ -130,6 +130,7 @@ halves, and its attachment data lies inert for anyone without this addon.
 | # | check | why it can break |
 |---|---|---|
 | 1 | An optic family shows one row with dropdowns | the core feature |
+| 1a | **Clicking a different family changes the dropdowns on the FIRST click** | the click path must read the clicked row. `ace_arsenal_currentItems` is not written until the end of ACE's own handler, so reading it here shows the previous attachment — and picking a value from that stale panel silently re-equips the old one |
 | 2 | Picking a value equips the right class, weight updates | `changeCurrentConfig` re-enters ACE's handler rather than equipping directly |
 | 3 | **Per-weapon compatibility** — select a weapon taking only some of a family; the dropdown offers only those, family still visible | this is *why* the collapse happens after the fill instead of filtering `virtualItems` |
 | 4 | **Selection restore** — equip a non-representative variant, switch tabs, come back; it is still selected | the equipped item must be the row that survives, or ACE falls back to `<empty>` and it looks unequipped |
@@ -284,6 +285,55 @@ It is replaced by checks that are actually invariants:
 The general lesson: a statistical guard over a correctness property will eventually fire on the
 success case. Bad groupings are caught offline by `gen_aceax.py --check` and `tools/verify.py`, where
 the whole dataset is visible, not one panel at a time.
+
+### The third live failure: an assumption written down as a fact
+
+Fixing the wrong-variant bug above moved `fnc_refreshOptions` off the listbox row and onto the
+equipped item from `ace_arsenal_currentItems`. That was right for the refill path and wrong for the
+click path, and the commit said so in a comment:
+
+```
+// Safe on the click path too: ACE's config-defined onLBSelChanged runs before
+// handlers added with ctrlAddEventHandler, so by the time fnc_onSelChangedRight
+// gets here ACE has equipped the clicked item and currentItems is current.
+```
+
+Nobody had established that. ACE writes `GVAR(currentItems)` at the **end** of its own handler
+(`fnc_onSelChangedRight.sqf:65`), so reading it from our handler returned the *previous*
+attachment. Clicking a new family showed the old panel; the `if (_model != GVAR(currentModel))`
+guard then saw no change and never rebuilt, so it stayed one click behind for good. Worse, picking
+a value from that stale panel made `changeCurrentConfig` resolve a variant of the old model and
+equip it — the click silently undid itself.
+
+The fix is not to work out which handler runs first. It is to stop depending on the answer: ACE
+equips the clicked row's data verbatim (`_item = _control lbData _curSel`), so on a click the row
+is what is about to be on the weapon in either ordering. `refreshOptions` now takes a flag saying
+which way round the two are, and each caller passes what it actually knows — the row leads on a
+click, the weapon leads on a refill.
+
+Two lessons, and the second is the one that cost the time:
+
+- **A comment asserting runtime behaviour is a claim, not documentation.** This one was written
+  from plausibility and then read as though it had been verified. Searching ACE3, CBA and ZEN
+  afterwards turned up **no** statement of the ordering either way — the only assertions of it on
+  disk were this addon's own, which is not evidence. If a claim cannot be checked, write the design
+  so it does not matter.
+- **Prefer the argument you were handed over the global you could look up.** The event carried the
+  answer; the global was a second source that could be, and was, out of step. This is ACE's own
+  house style where it hooks a control it does not own — `ace_inventory_fnc_onLBSelChanged` takes
+  the index from `params` and defers the rest a frame, rather than reading state another handler
+  owns.
+
+A trap worth naming, because it is what made the false claim look reasonable: ACEAX *does* read
+`ace_arsenal_currentItems` from its left-panel selection handler. It can, because it **forked the
+control class in config** (`aceax_arsenal` `config.cpp`, `class leftTabContent: RscListBox`), which
+replaces ACE's handler — so its `call ace_arsenal_fnc_onSelChangedLeft` on the line before is the
+only thing that runs ACE's code, and the ordering is its own. This addon adds alongside instead and
+controls no ordering at all. The same-looking code is safe there and unsafe here.
+
+`changeCurrentConfig` now also refuses to rewrite a row whose model does not match the panel's,
+which turns any future desync of this kind back into a cosmetic glitch rather than a changed
+loadout. Check 1a exists to catch the whole class on the first click.
 
 ## 6. Things that would break this addon
 

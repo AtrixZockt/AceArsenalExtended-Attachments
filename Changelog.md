@@ -1,3 +1,0 @@
-- Fixed: Sub-Selection panel how hides when right panel is hidden
-- Fixed: Right panel showed the wrong variant selected after switching tabs and back
-- Added: docs/example-compat/ — a hand-written compat to copy, for making one without the Python tools
