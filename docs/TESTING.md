@@ -139,8 +139,11 @@ halves, and its attachment data lies inert for anyone without this addon.
 | 7 | Switching weapon, then slot, then back | the collapse re-runs per fill; stale `allowedItems` would show wrong values |
 | 8 | Container on the left (uniform/vest), attachments on the right | ACE lists *all* attachments there rather than compatible ones; nothing is equipped, so the "keep the equipped row" rule has no input |
 | 9 | Scrollbar reaches the bottom row after the panel resizes | resizing a listbox does not refresh its scrollbar — there is a deferred re-commit for this |
+| 10 | **In the Eden Editor** — place a unit, right-click → *ACE Arsenal*, and check **all three** separately: rows merge, the option panel appears, and the grey labels are there | three different code paths, and only the first is synchronous. CBA runs preInit but **never postInit** in 3DEN — which kills both hooks registered there *and* everything deferred, since CBA's frame driver is itself installed in postInit. Both shipped, a release apart. See the fourth live failure |
+| 11 | A merged row shows the model name in small grey text on the right; a family with only one variant compatible with this weapon shows none | `fnc_labelPanel`. ACE's sort clears every row's right text, so the labels go on after the fill, not during it |
+| 12 | Change the right-hand sort combo, then refill the panel: labels come back **fully**, never on only part of the list | ACE's `fnc_sortPanel` calls `lbSetCurSel` from inside the loop clearing each row's right text. A half-labelled list means something is calling `fnc_labelPanel` mid-sort |
 
-Checks 3, 4 and 8 are the ones a naive implementation gets wrong.
+Checks 3, 4, 8 and 10 are the ones a naive implementation gets wrong.
 
 ### Magazines
 
@@ -335,14 +338,101 @@ controls no ordering at all. The same-looking code is safe there and unsafe here
 which turns any future desync of this kind back into a cosmetic glitch rather than a changed
 loadout. Check 1a exists to catch the whole class on the first click.
 
+### The fourth live failure: the right hook, registered where the editor never looks
+
+The addon worked in every arsenal a player can open — mission, Zeus, the ACE box — and did nothing
+at all in the Eden Editor. No merging, no option panel, no error.
+
+Every hook was registered in `XEH_postInit.sqf`, and **CBA never runs postInit in 3DEN.**
+`CBA_fnc_postInit` is declared `postInit = 1` in `cba_xeh`'s `CfgFunctions`, so the engine calls it
+when a *mission* initialises, and the editor is not a mission. What CBA does instead is
+`cba_xeh_fnc_initDisplay3DEN`, hung off `Extended_DisplayLoad_EventHandlers >> Display3DEN`:
+
+```sqf
+private _fnc_watchDog = {
+    if (!ISPROCESSED(missionNamespace)) then {
+        [] call CBA_fnc_preInit;
+    };
+};
+_display displayAddEventHandler ["MouseMoving", _fnc_watchDog];
+_display displayAddEventHandler ["MouseHolding", _fnc_watchDog];
+```
+
+`CBA_fnc_preInit`, and preInit only. Nothing in CBA reaches postInit from the editor.
+
+That is a nastier failure than a broken one, because every visible sign of life was still there:
+preInit ran, so `PREP` compiled all eleven functions and every GVAR was set. The functions simply
+had no callers. Nothing errors when an event you never subscribed to is raised.
+
+The hooks now live in `XEH_preInit.sqf`, where ACEAX has always put its own — which is the whole
+reason ACEAX works in the editor and this did not.
+
+The ordering guarantee that put them in postInit in the first place ("postInit runs after every
+addon's preInit, so this fires after ACEAX's `rightPanelFilled` handler regardless of load order")
+survives the move by a different route: `CfgPatches` requires `aceax_arsenal`, which orders our
+class after ACEAX's inside `Extended_PreInit_EventHandlers`, and `CBA_fnc_compileEventHandlers`
+walks that class with `configProperties` — in config order — for `CBA_fnc_preInit` to execute in
+turn. It is a weak dependency in any case: ACEAX's only `rightPanelFilled` handler applies texture
+options to the 3D preview and never touches the listbox.
+
+The lesson is the narrow one: **`postInit` is not "preInit, but later".** It is a different
+lifecycle with a context this addon runs in and that one does not. Anything hooking a UI that opens
+outside a mission — the editor, the main menu — belongs in preInit, and the only way to know is to
+open it there. Check 10 exists for that.
+
+#### Its twin: nothing deferred runs there either
+
+Moving the hooks fixed the merging and left the grey model labels missing, which is the *same* bug
+one level down. **CBA's per-frame driver is installed in CBA's own postInit**, so 3DEN does not
+start it. `cba_common/XEH_postInit.sqf:5` is the only place in all of CBA that does:
+
+```sqf
+//Install PFEH:
+addMissionEventHandler ["EachFrame", {call FUNC(onFrame)}];
+```
+
+`cba_common_fnc_onFrame` is what drains the `execNextFrame` double buffer
+(`common/init_perFrameHandler.sqf:66-69`), so in the editor **`CBA_fnc_execNextFrame` queues work
+that nothing ever executes** — and so do `CBA_fnc_waitAndExecute`, `CBA_fnc_waitUntilAndExecute` and
+every per-frame handler. ACE3 records the same finding in one line, at
+`ace_arsenal_fnc_onSelChangedLeft`:
+
+```sqf
+// execNextFrame won't work in 3den so just swap it now
+```
+
+It made the editor look *more* fixed than it was, because only one of the three paths is deferred:
+
+| in the editor | why it worked, or did not |
+|---|---|
+| merging | `fnc_collapsePanel` runs synchronously inside `ace_arsenal_rightPanelFilled` ✔ |
+| the dropdown panel | ACE ends `fnc_fillRightPanel` with `lbSetCurSel`, which fires `LBSelChanged` → `fnc_onSelChangedRight` → `refreshOptions`, all synchronous ✔ |
+| the grey labels | called only from the `execNextFrame` block ✘ |
+
+ACE's "just do it now" is not available here, because the sort that wipes the labels has not
+happened yet at the point the event fires. The editor gets `GVAR(edenPending)` instead, consumed by
+that same end-of-fill `LBSelChanged` — the first synchronous moment after the sort. The mission path
+is behind `if (is3DEN)` and unchanged.
+
+**The rule, for anything added to this addon later: no `CBA_fnc_execNextFrame`,
+`CBA_fnc_waitAndExecute` or per-frame handler without an `is3DEN` branch.** It will work perfectly
+in every test that is not the editor.
+
+Known limitation that falls out of it: the hooks on the right-hand sort combos are deferred, so
+changing the sort **in the editor** drops the labels until the panel next refills. The alternative
+is worse — ACE's `fnc_sortPanel` calls `lbSetCurSel` from inside the loop that is clearing each
+row's right text, so labelling from there would write every row and then have everything below the
+selected one wiped again. Check 12 is the guard against that regression.
+
 ## 6. Things that would break this addon
 
 Worth knowing what to look at first when something does go wrong.
 
-- **ACE renames or renumbers `rightTabContent` (idc 14).** The constants live in
-  `addons/main/defines.hpp`, copied from ACE because it ships binarised and there is no header to
-  include. Symptom: an `ERROR` on arsenal open saying the control was not found or is not a
-  listbox — `XEH_postInit.sqf` checks `ctrlType` for exactly this.
+- **ACE renames or renumbers `rightTabContent` (idc 14), or the sort combos (17 / 171).** The
+  constants live in `addons/main/defines.hpp`, copied from ACE because it ships binarised and there
+  is no header to include. Symptom: an `ERROR` on arsenal open saying the control was not found or
+  is not a listbox — `XEH_preInit.sqf` checks `ctrlType` for exactly this. A renumbered sort combo
+  is milder: the labels stop surviving a re-sort, and the RPT names the idc.
 - **Another addon patches `rightTabContent` in config without restating its parent.** Same failure
   this addon shipped with, but caused externally: the control loses its type and the whole panel
   goes blank, for stock ACE as much as for us. The `ctrlType` check names it on arsenal open.
@@ -357,6 +447,24 @@ Worth knowing what to look at first when something does go wrong.
   looks for is not always the class that is fitted. `fnc_collapsePanel` handles the divergence by
   rewriting the surviving row to the equipped class; `fnc_equippedItem` is why the dropdowns stay
   right even when that fails.
+- **CBA changes how it initialises 3DEN.** Every hook is registered in preInit because that is the
+  only phase CBA drives in the editor, and the deferred work has an `is3DEN` branch because CBA's
+  frame driver is not started there either. Symptom: check 10 — the arsenal works everywhere except
+  the Eden Editor, silently. See "the fourth live failure". If CBA ever *does* drive frames in 3DEN
+  this all keeps working: the `is3DEN` branch becomes redundant rather than wrong, and the sort-combo
+  hooks start working there by themselves.
+- **ACE stops restoring the selection at the end of `fnc_fillRightPanel`**, or stops doing it with
+  `lbSetCurSel`. That `LBSelChanged` is what carries the editor's deferred work, so the labels and
+  the option panel would both go missing in 3DEN — and nowhere else. Symptom: check 10, again.
+- **ACEAX stops forking `leftTabContent`, or sets its `colorTextRight` alpha back to 0.** The grey
+  model labels are the listbox row's own right-hand text, and this addon sets no colour of its own:
+  ACE declares `rightTabContent: leftTabContent` without restating the property, so the panel
+  inherits ACEAX's `{0.5,0.5,0.5,1}`. If that goes, the labels are written but invisible — check 11
+  fails and nothing else does. The fix would be a per-row `lbSetColorRight` in `fnc_labelPanel`,
+  which costs the black-on-selected-row flip `colorSelect2Right` currently gives for free.
+- **ACE stops clearing the sort key it writes into each row's right text**, or stops using that slot
+  to sort. `fnc_labelPanel` runs a frame after the fill purely to land after that. Symptom: check 11
+  shows sort keys — long runs of punctuation and class names — instead of model labels.
 - **ACEAX changes its IDC ranges** into ours. Symptom: check 5 — controls from one panel appear in
   the other.
 - **ACEAX implements attachments itself.** The generated compat data should still be valid (same

@@ -18,6 +18,12 @@
 #define IDC_leftTabContent 13
 #define IDC_rightTabContent 14
 
+// The right panel's two sort combos. Both run ACE's sortPanel, which uses each
+// row's right-hand text as a hidden sort key and clears it afterwards -- so a
+// sort wipes the model labels fnc_labelPanel writes there.
+#define IDC_sortRightTab 17
+#define IDC_sortRightTabDirection 171
+
 // ---- left panel buttons: which weapon the right panel is showing ----------
 #define IDC_buttonPrimaryWeapon 2002
 #define IDC_buttonHandgun 2004

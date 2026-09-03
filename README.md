@@ -18,6 +18,10 @@ three round counts and four tracer colours, is a screenful of rows that differ b
 
 This addon supplies the missing half of the machinery. It ships **no grouping data of its own**.
 
+A merged row carries the model name in small grey text on the right, the same hint ACEAX gives on
+the left, so it reads as a family rather than a single item — and only where there is actually more
+than one variant the selected weapon can take.
+
 ---
 
 ## For players
@@ -124,22 +128,31 @@ hemtt launch baseline  # ACEAX + this extension only, to check nothing changed
 
 When ACE finishes filling the right panel it raises `ace_arsenal_rightPanelFilled`. At that moment
 the list holds exactly the attachments valid for the selected weapon and slot — ACE has already
-filtered by `compatibleItems`. A frame later, this addon collapses rows that share a model, keeping
-one, and puts the usual ACEAX dropdowns underneath.
+filtered by `compatibleItems`. This addon collapses rows that share a model, keeping one, and puts
+the usual ACEAX dropdowns underneath.
 
 Collapsing the *list* rather than the item pool is the important choice. Attachment compatibility is
 per weapon, so a representative picked once, globally, might not fit the weapon you have selected —
 and the whole family would vanish from the panel. Doing it after the fill sidesteps that entirely,
 and has the happy side effect that a dropdown only ever offers variants the current weapon can take.
 
-Three details that matter:
+Four details that matter:
 
-- it runs a frame *after* the event, because ACE goes on to sort the panel and restore the selection
-  after raising it;
+- the collapse runs *during* the event, not a frame later. ACE goes on to sort the panel and restore
+  the selection after raising it, so deleting rows there means ACE does its restore against the
+  already-collapsed list and lands on the surviving row by itself;
 - the equipped attachment is always the row that survives, so ACE's selection restore finds it
   instead of falling back to `<empty>`;
+- the dropdown panel and the grey model labels are written a frame later, once that sort has
+  finished — ACE's sort uses each row's right-hand text as a hidden sort key and clears it, which
+  would wipe the labels;
 - the option panel uses its own IDC block, because ACEAX's can be showing a grouped weapon on the
   left at the same moment.
+
+Everything hangs off CBA events raised by ACE, registered in **preInit** — the only init phase CBA
+runs in the Eden Editor, where the arsenal also opens. CBA's per-frame driver is not started there
+either, so in the editor that third step is triggered by ACE's own end-of-fill selection restore
+rather than by a frame.
 
 ## License
 

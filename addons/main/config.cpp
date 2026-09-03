@@ -47,8 +47,13 @@ class ace_arsenal_display {
         //
         // Restating the parent would fix it, but doing config surgery on another
         // mod's control means the last addon to patch it wins. The selection
-        // handler is attached at runtime instead -- see XEH_postInit.sqf --
+        // handler is attached at runtime instead -- see XEH_preInit.sqf --
         // which adds alongside ACE's rather than replacing it.
+        //
+        // The grey model label fnc_labelPanel writes needs no patch here either:
+        // ACE declares `rightTabContent: leftTabContent` and does not restate
+        // colorTextRight, so the panel inherits ACEAX's {0.5,0.5,0.5,1} from its
+        // fork of leftTabContent rather than ACE's own alpha-0 default.
         //
         // Only NEW classes below this line.
 

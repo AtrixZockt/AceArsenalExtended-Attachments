@@ -31,6 +31,35 @@
  * It is also deliberately NOT told the selection is leading: on a refill the row can
  * disagree with the weapon, and there the weapon wins. See fnc_refreshOptions.
  *
+ * The LABELLING waits a frame for a harder reason: it would not survive otherwise.
+ * After this event ACE calls fnc_fillSort, whose last line sets the sort combo's
+ * selection and so triggers a real sort -- and ACE's sortPanel uses each row's
+ * right-hand text as its sort key, clearing every row when it is done. Anything
+ * fnc_labelPanel wrote during the collapse would be gone by the end of this frame.
+ *
+ * ---------------------------------------------------------------------------
+ * NOTHING DEFERRED RUNS IN THE EDEN EDITOR.
+ *
+ * CBA_fnc_execNextFrame only queues; what drains the queue is cba_common_fnc_onFrame,
+ * and the sole thing that ever calls it is
+ *
+ *     addMissionEventHandler ["EachFrame", {call FUNC(onFrame)}];
+ *
+ * in cba_common's XEH_postInit -- and 3DEN never runs postInit, for the same reason
+ * this addon's own hooks had to move to preInit. So in the editor the queue fills up
+ * and is never executed. ACE says the same thing in one line at
+ * ace_arsenal_fnc_onSelChangedLeft: "execNextFrame won't work in 3den so just swap
+ * it now". CBA_fnc_waitAndExecute and every per-frame handler are dead there too.
+ *
+ * ACE's "just do it now" is not available here: the sort that wipes the labels has
+ * not happened yet at this point. What the editor gets instead is a flag, picked up
+ * by the LBSelChanged that ACE's own selection restore fires at the very end of
+ * fnc_fillRightPanel -- the first synchronous moment after that sort, and a handler
+ * this addon already owns. See fnc_onSelChangedRight.
+ *
+ * The mission path is deliberately left exactly as it was.
+ * ---------------------------------------------------------------------------
+ *
  * Arguments:
  * 0: Arsenal display <DISPLAY>
  * 1: Current left panel IDC <NUMBER>
@@ -44,9 +73,14 @@ params ["_display"];
 
 [_display] call FUNC(collapsePanel);
 
-[{
-    params ["_display"];
-    if (isNull _display) exitWith {};
+if (is3DEN) then {
+    GVAR(edenPending) = true;
+} else {
+    [{
+        params ["_display"];
+        if (isNull _display) exitWith {};
 
-    [_display] call FUNC(refreshOptions);
-}, [_display]] call CBA_fnc_execNextFrame;
+        [_display] call FUNC(refreshOptions);
+        [_display] call FUNC(labelPanel);
+    }, [_display]] call CBA_fnc_execNextFrame;
+};

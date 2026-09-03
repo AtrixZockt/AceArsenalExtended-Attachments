@@ -9,6 +9,8 @@ It adds up faster than gear does, because attachments vary along more axes. One 
 
 Magazines are the same problem wearing a different hat: one calibre in tracer and non-tracer, across three round counts and four tracer colours, is a screenful of rows that differ by a single word.
 
+A merged row carries the model name in small grey text on the right — the same hint ACE Arsenal Extended gives on the left — so you can see from the list which entries have variants behind them. It works in the Eden Editor too.
+
 [h1]Important: It Does Nothing On Its Own[/h1]
 This is the mechanism, not the data. It needs a [b]compat[/b] addon for whichever weapon mod you run, telling it which items are variants of each other.
 

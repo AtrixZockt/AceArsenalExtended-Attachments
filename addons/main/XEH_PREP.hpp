@@ -3,6 +3,7 @@ PREP(equippedItem);
 PREP(onRightPanelFilled);
 PREP(collapsePanel);
 PREP(onSelChangedRight);
+PREP(labelPanel);
 PREP(refreshOptions);
 PREP(generateOptionsUI);
 PREP(refreshCheckboxes);
