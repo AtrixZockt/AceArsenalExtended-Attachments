@@ -102,6 +102,24 @@ WEAPON_ROOTS = {
     # classified as nothing at all, silently. These are still Rifle underneath;
     # only the vanilla intermediate the dump cannot see is missing.
     "dmr_06_base_f": "primary",
+    # The same trap, nine more times, all in RHS. Each forward-declares the vanilla
+    # weapon it hangs off, whose own base is then absent, so 53 arsenal weapons
+    # classified as nothing: 27 M14s (srifle_EBR_F -> EBR_base_F), the PYa/PM/PB
+    # pistols (hgun_Rook40_F), the Glock, M9 and CZ99 (hgun_P07_F), the M1911A1
+    # (hgun_ACPC2_F), the M240s and FN MAG (LMG_Mk200_F), the Javelin, Stinger and
+    # Igla (launch_O_Titan_F -> launch_Titan_base), the Scorpion and Sa vz.61
+    # (SMG_01_F -> SMG_01_Base), the PP-2000 (hgun_PDW2000_F -> pdw2000_base_F)
+    # and the Lerca, Vector 21 and PDU-4 binoculars (Rangefinder). A weapon's own
+    # `type` still overrides the tab below, exactly as for the roots above.
+    "ebr_base_f": "primary",
+    "hgun_rook40_f": "handgun",
+    "hgun_p07_f": "handgun",
+    "hgun_acpc2_f": "handgun",
+    "lmg_mk200_f": "primary",
+    "launch_titan_base": "launcher",
+    "smg_01_base": "primary",
+    "pdw2000_base_f": "primary",
+    "rangefinder": "binocular",
 }
 
 # Wearable CfgWeapons items are recognised by what their ItemInfo inherits from.
@@ -190,6 +208,38 @@ VANILLA_BACKPACK_BASES = {
     "b_bergen_base",
     "b_viperharness_base",
     "b_legstrapbag_base_f",
+}
+
+# Concrete vanilla bags, for a mod that inherits a finished backpack rather than
+# its base. RHSUSAF's three Falcon-IIs derive straight from B_AssaultPack_rgr,
+# whose isBackpack sits on B_AssaultPack_Base -- two vanilla classes deep, neither
+# in the dump -- so they classified as nothing. Matched by prefix because vanilla
+# names every bag of a family that way, and no unit or crate class starts with one.
+VANILLA_BACKPACK_PREFIXES = (
+    "b_assaultpack_",
+    "b_bergen_",
+    "b_carryall_",
+    "b_fieldpack_",
+    "b_kitbag_",
+    "b_legstrapbag_",
+    "b_messenger_",
+    "b_radiobag_",
+    "b_tacticalpack_",
+    "b_viperharness_",
+    "b_viperlightharness_",
+)
+
+# Vanilla wearables a mod inherits or patches without restating `scope`. The same
+# gap as the attachment and magazine cases: the value lives on a class the dump
+# cannot see. RHS writes `class H_HelmetB : ItemCore { class ItemInfo; };` -- a
+# body with no scope in it -- and 136 of its helmets descend from that stub, so
+# offline they looked hidden while the game, which merges vanilla's `scope = 2`
+# back in, lists every one. Named individually, each checked against the vanilla
+# config, rather than by prefix: not every vanilla h_/g_ class is scope 2.
+VANILLA_SCOPE2_WEARABLES = {
+    "h_helmetb",
+    "g_balaclava_blk",
+    "g_combat",
 }
 
 # Vanilla ammunition magazines that mods inherit from. Fourth instance of the same
@@ -448,7 +498,7 @@ class Config:
         if kind:
             return kind
 
-        kind = WEAPON_ROOTS.get(self.root_parent(root, name))
+        kind = self._weapon_root_kind(root, name)
         if kind is None:
             return self._vanilla_attachment_kind(root, name)
         # a weapon may override which tab it lands on: NIArms' MP5K is rifle-rooted
@@ -459,6 +509,22 @@ class Config:
         if item_type == 4096:
             return "binocular"
         return kind
+
+    def _weapon_root_kind(self, root: str, name: str) -> str | None:
+        """Kind from the nearest weapon root in the ancestry, else from root_parent.
+
+        Testing only `root_parent` fails as soon as a mod patches the vanilla root
+        itself, because the chain then runs one class further. RHS writes
+        `class NVGoggles : Binocular { ... }` with a body, so the dump holds it, the
+        first missing ancestor becomes `binocular`, and every one of its NVGs filed
+        under binoculars. The nearest root named in the chain is the one that
+        describes the item -- the same reasoning as _vanilla_attachment_kind.
+        """
+        for ancestor in self.chain(root, name):
+            kind = WEAPON_ROOTS.get(ancestor)
+            if kind:
+                return kind
+        return WEAPON_ROOTS.get(self.root_parent(root, name))
 
     def _iteminfo_kind(self, root: str, name: str) -> str:
         """Kind from the class its ItemInfo inherits, walking the class chain.
@@ -628,6 +694,8 @@ class Config:
         for ancestor in self.chain(root, name) + [self.root_parent(root, name)]:
             if ancestor in VANILLA_BACKPACK_BASES:
                 return True
+            if ancestor.startswith(VANILLA_BACKPACK_PREFIXES):
+                return True
         return False
 
     def _effective_scope(self, root: str, name: str) -> int:
@@ -652,6 +720,10 @@ class Config:
         G28 magazines derive from vanilla 20Rnd_762x51_Mag and declare no scope of
         their own; the ten-round versions, which BWmod really does hide, say
         `scope = 1` outright and are still excluded by the check above.
+
+        Wearables get the same treatment, but only through named classes -- see
+        VANILLA_SCOPE2_WEARABLES. RHS's helmets reach vanilla H_HelmetB through a
+        scope-less patch of it, and are scope 2 in game for that reason alone.
         """
         raw = self.resolve(root, name, "scope")
         if raw is not None:
@@ -660,6 +732,9 @@ class Config:
             return 2
         if self._inherits_vanilla_magazine(root, name):
             return 2
+        for ancestor in self.chain(root, name) + [self.root_parent(root, name)]:
+            if ancestor in VANILLA_SCOPE2_WEARABLES:
+                return 2
         return 0
 
     def items(self) -> list[Item]:

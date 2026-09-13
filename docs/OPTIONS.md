@@ -43,6 +43,16 @@ options:
 Extra colours go in `camo_values:` and merge into the shared palette. Check
 `camo_values_from_aceax:` first — ACEAX ships around 52.
 
+A value takes a flat swatch from `color:`, or a texture from `image:` — a path to a `.paa` the
+compat ships inside its own pbo, for patterns a single colour cannot stand in for. Put the files
+somewhere outside `XtdGearModels/` and `XtdGearInfos/`, which the generator prunes:
+
+```yaml
+camo_values:
+  WD:    {label: "Woodland", color: [0.35, 0.38, 0.26]}
+  TTsKO: {label: "TTsKO", image: 'z\aceaxfoo\addons\main\data\camo\ttsko.paa'}
+```
+
 ### Recommended names
 
 | option | for | typical values |

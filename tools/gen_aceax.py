@@ -425,7 +425,11 @@ def render_common(ov: dict) -> str:
         out.append(f"        label = {q(meta['label'])};\n")
         if meta.get("description"):
             out.append(f"        description = {q(meta['description'])};\n")
-        if meta.get("color"):
+        # `image:` is a texture path shipped in the compat's own pbo, for patterns
+        # a flat colour cannot stand in for; `color:` is the flat swatch.
+        if meta.get("image"):
+            out.append(f"        image = {q(meta['image'])};\n")
+        elif meta.get("color"):
             r, g, b = meta["color"]
             out.append(f'        image = "#(rgb,8,8,3)color({r},{g},{b},1)";\n')
         out.append("    };\n")
